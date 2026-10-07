@@ -37,12 +37,17 @@ UINT ShowSettingsMessage()
 int App::Run(HINSTANCE inst, int argc, wchar_t** argv)
 {
     inst_ = inst;
+    // The second half of an update: this exe was started from the update folder.
+    if (const int rc = updater::FinishUpdateIfAsked(argc, argv); rc >= 0) return rc;
+
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
     bool startHidden = false;
     for (int i = 1; i < argc; ++i) {
         if (_wcsicmp(argv[i], L"--tray") == 0) startHidden = true;
+        if (_wcsicmp(argv[i], L"--updated") == 0) justUpdated_ = true;
+        if (_wcsicmp(argv[i], L"--update-failed") == 0) updateFailed_ = true;
     }
 
     configPath_ = win::DataDir() + L"config.ini";
@@ -138,7 +143,9 @@ bool App::Init(bool startHidden)
     PollHotkeys();      // swallow key presses that happened before we started
     if (!startHidden || !cfg_.firstRunDone) OpenSettings();
     RefreshAutostartAsync();
-    updater::CheckAsync();
+    startTick_ = lastUpdateCheck_ = GetTickCount64();
+    updater::CheckAsync(cfg_.autoUpdate);
+    if (justUpdated_) TrayMessage(locale::TF("Updated to version %s", APP_VERSION));
     return true;
 }
 
@@ -216,6 +223,9 @@ void App::Frame()
     theme::SetAccent(cfg_.accent);
     hud_.Tick(cfg_, info, snapshot_);
 
+    TickUpdates(now, fresh);
+    if (!running_) return;
+
     if (settings_.IsOpen()) {
         UiStatus st;
         st.elevated = elevated_;
@@ -225,9 +235,7 @@ void App::Frame()
         st.target = tracker_.DisplayName();
         st.liveFps = fresh ? fr.stats.fps : 0.f;
         st.autostart = autostart_.load() == 1;
-        st.updateCheckEnabled = updater::Enabled();
-        st.updateChecking = updater::Busy();
-        st.updateVersion = updater::NewerVersion();
+        st.update = updater::GetStatus();
         st.configPath = win::ToUtf8(configPath_);
         if (settings_.Tick(st, snapshot_)) {
             SaveSoon();
@@ -278,8 +286,12 @@ void App::HandleUiActions(const UiActions& a)
     }
     if (a.quit) running_ = false;
     if (a.openConfigFolder) shell::RevealInExplorer(configPath_);
-    if (a.checkUpdates) updater::CheckAsync();
+    if (a.checkUpdates) updater::CheckAsync(cfg_.autoUpdate);
     if (a.openUpdatePage) shell::OpenUnelevated(updater::ReleasePageUrl());
+    if (a.installUpdate) {
+        installRequested_ = true;
+        if (updater::GetStatus().state != updater::State::Ready) updater::CheckAsync(true);
+    }
     if (a.languageChanged) ApplyLanguage();
     if (a.setAutostart >= 0 && !autostartBusy_.exchange(true)) {
         const bool enable = a.setAutostart == 1;
@@ -392,6 +404,49 @@ void App::AddTrayIcon()
         nid_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
     wcsncpy_s(nid_.szTip, APP_NAME_W, _TRUNCATE);
     trayAdded_ = Shell_NotifyIconW(NIM_ADD, &nid_) != FALSE;
+}
+
+void App::TrayMessage(const std::string& text)
+{
+    if (!trayAdded_) return;
+    NOTIFYICONDATAW n = nid_;
+    n.uFlags = NIF_INFO;
+    wcsncpy_s(n.szInfoTitle, APP_NAME_W, _TRUNCATE);
+    wcsncpy_s(n.szInfo, win::ToWide(text).c_str(), _TRUNCATE);
+    n.dwInfoFlags = NIIF_USER;
+    n.hBalloonIcon = nid_.hIcon;
+    Shell_NotifyIconW(NIM_MODIFY, &n);
+}
+
+// Checks for a new release every 6 hours, downloads it in the background and installs it when
+// no game has drawn a frame for 10 seconds and the settings window is closed. "Install now"
+// installs as soon as the download is ready.
+void App::TickUpdates(ULONGLONG now, bool gameRunning)
+{
+    if (!updater::Enabled()) return;
+    if (gameRunning) lastGameFrame_ = now;
+    if (now - lastUpdateCheck_ >= 6ull * 3600 * 1000) {
+        lastUpdateCheck_ = now;
+        updater::CheckAsync(cfg_.autoUpdate);
+    }
+    const updater::Status st = updater::GetStatus();
+    if (st.state == updater::State::Available && cfg_.autoUpdate) updater::CheckAsync(true);
+    if (st.state == updater::State::Failed) installRequested_ = false;
+    if (st.state != updater::State::Ready) return;
+
+    // After a failed install (a file was in use) only "Install now" retries in this session, so a
+    // stuck file cannot cause a restart loop.
+    const bool idle = cfg_.autoUpdate && !updateFailed_ && !settings_.IsOpen() && now - startTick_ >= 15000 &&
+                      now - lastGameFrame_ >= 10000;
+    if (!installRequested_ && !idle) return;
+    std::string err;
+    if (updater::LaunchInstaller(!settings_.IsOpen(), err)) {
+        SaveNow();
+        running_ = false;
+    } else {
+        logx::Warn("Update: %s", err.c_str());
+        installRequested_ = false;
+    }
 }
 
 void App::RemoveTrayIcon()

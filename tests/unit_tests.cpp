@@ -238,9 +238,44 @@ static void TestVersions()
     CHECK(updater::CompareVersions("", "0.0.1") < 0);
 }
 
+// ── GitHub release JSON (auto-update) ───────────────────────────────────────
+
+static void TestReleaseJson()
+{
+    const std::string json = R"({
+  "url": "https://api.github.com/repos/o/r/releases/1",
+  "tag_name": "v2.1.0",
+  "name": "FPS Overlay 2.1.0",
+  "author": { "login": "o", "id": 1, "site_admin": false },
+  "body": "Notes with \"quotes\", a \\ backslash and é.",
+  "assets": [
+    { "name": "FPSOverlay.zip.sig", "size": 64, "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "browser_download_url": "https://github.com/o/r/releases/download/v2.1.0/FPSOverlay.zip.sig" },
+    { "url": "https://api.github.com/repos/o/r/releases/assets/2", "id": 2, "name": "FPSOverlay.zip", "label": null,
+      "uploader": { "login": "o", "id": 1, "url": "https://api.github.com/users/o" },
+      "content_type": "application/x-zip-compressed", "state": "uploaded", "size": 5216662,
+      "digest": "sha256:CC6AFC614BBC8A7CCCA05965FE9AFFA7CD3DFD10CF038D80BCE33B6A8C5B34F5", "download_count": 3,
+      "browser_download_url": "https://github.com/o/r/releases/download/v2.1.0/FPSOverlay.zip" }
+  ],
+  "tarball_url": "https://api.github.com/repos/o/r/tarball/v2.1.0"
+})";
+    updater::ReleaseInfo r;
+    CHECK(updater::ParseRelease(json, "FPSOverlay.zip", r));
+    CHECK(r.tag == "v2.1.0");
+    CHECK(r.assetUrl == "https://github.com/o/r/releases/download/v2.1.0/FPSOverlay.zip");
+    CHECK(r.sha256 == "cc6afc614bbc8a7ccca05965fe9affa7cd3dfd10cf038d80bce33b6a8c5b34f5");
+    CHECK(r.size == 5216662ull);
+
+    CHECK(updater::ParseRelease(json, "Other.zip", r) && r.assetUrl.empty() && r.sha256.empty());
+    CHECK(!updater::ParseRelease(R"({"message": "Not Found"})", "FPSOverlay.zip", r));
+    CHECK(!updater::ParseRelease("<html>rate limited</html>", "FPSOverlay.zip", r));
+    CHECK(!updater::ParseRelease(R"({"tag_name": "v1", "assets": [)", "FPSOverlay.zip", r));
+}
+
 int main()
 {
     TestVersions();
+    TestReleaseJson();
     TestIni();
     TestConfig();
     TestFrameStats();

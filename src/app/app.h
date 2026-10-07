@@ -42,6 +42,8 @@ private:
     LRESULT HandleMsg(UINT, WPARAM, LPARAM);
     void AddTrayIcon();
     void RemoveTrayIcon();
+    void TrayMessage(const std::string& text);
+    void TickUpdates(ULONGLONG now, bool gameRunning);
     void ShowMenu(POINT at, bool fromHud);
     void PollHotkeys();
 
@@ -71,6 +73,13 @@ private:
     std::vector<float> graph_;
     SensorSnapshot snapshot_;
     uint64_t snapshotSeq_ = ~0ull;
+
+    bool justUpdated_ = false;             // started by the installer of a new version
+    bool updateFailed_ = false;            // started by an installer that had to roll back
+    bool installRequested_ = false;        // "Install now": install as soon as the download is ready
+    ULONGLONG startTick_ = 0;
+    ULONGLONG lastGameFrame_ = 0;          // last time a game was drawing frames
+    ULONGLONG lastUpdateCheck_ = 0;
 
     std::atomic<int> autostart_{ -1 };     // -1 unknown, 0 off, 1 on
     std::atomic<bool> autostartBusy_{ false };

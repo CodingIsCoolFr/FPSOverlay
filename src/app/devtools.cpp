@@ -1,6 +1,7 @@
 #include "app/devtools.h"
 #include "app/config.h"
 #include "app/log.h"
+#include "app/updater.h"
 #include "app/version.h"
 #include "capture/frame_capture.h"
 #include "capture/frame_stats.h"
@@ -156,7 +157,7 @@ int Shots(const std::wstring& dir, const std::string& language, float scale)
     st.target = "Cyberpunk 2077";
     st.liveFps = 143.6f;
     st.configPath = "C:\\Games\\FPS Overlay\\config.ini";
-    st.updateCheckEnabled = APP_UPDATE_REPO[0] != '\0';
+    st.update.state = APP_UPDATE_REPO[0] ? updater::State::UpToDate : updater::State::Off;
 
     int failures = 0;
     const char* pageNames[] = { "settings-overlay", "settings-appearance", "settings-sensors", "settings-hotkeys",
@@ -741,6 +742,17 @@ int Run(int argc, wchar_t** argv, const std::wstring&)
                 } else if (argv[k][0] != L'-') dir = argv[k];
             }
             return DemoFrames(dir, std::clamp(count, 1, 900), layout, std::clamp(scale, 50, 250), std::clamp(accent, 0, 7), all);
+        }
+        if (a == L"--update-check") {
+            // Check, download, verify and unpack the latest release next to this exe; no install.
+            updater::CheckAsync(true);
+            updater::Status s = updater::GetStatus();
+            for (int t = 0; t < 1800 && (s.state == updater::State::Checking || s.state == updater::State::Downloading); ++t) {
+                Sleep(100);
+                s = updater::GetStatus();
+            }
+            Out("update check: state %d, version '%s', error '%s'\n", (int)s.state, s.version.c_str(), s.error.c_str());
+            return s.state == updater::State::Ready || s.state == updater::State::UpToDate ? 0 : 1;
         }
         if (a == L"--probe") return Probe(i + 1 < argc && argv[i + 1][0] != L'-' ? std::clamp(_wtoi(argv[i + 1]), 1, 600) : 6);
         if (a == L"--make-icon" && i + 1 < argc) return MakeIcon(argv[i + 1]);

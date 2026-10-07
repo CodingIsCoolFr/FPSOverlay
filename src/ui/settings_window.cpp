@@ -817,6 +817,13 @@ void SettingsWindow::PageGeneral(const UiStatus& status)
         actions_.setAutostart = autostart ? 1 : 0;
     ui::EndCard();
 
+    if (updater::Enabled()) {
+        ui::BeginCard("##updates", T("Updates"));
+        ui::ToggleRow(T("Install updates automatically"), &cfg_->autoUpdate,
+                      T("Downloads new versions from GitHub, checks them and installs them when no game is running."));
+        ui::EndCard();
+    }
+
     ui::BeginCard("##units", T("Units"));
     {
         const char* temp[] = { "\xC2\xB0" "C", "\xC2\xB0" "F" };
@@ -859,14 +866,42 @@ void SettingsWindow::PageAbout(const UiStatus& status, const SensorSnapshot& s)
     ui::InfoRow(T("Version"), APP_VERSION);
     ui::InfoRow(T("Administrator"), status.elevated ? T("Yes") : T("No (FPS capture needs it)"),
                 status.elevated ? &theme::kGood : &theme::kWarn);
-    if (status.updateCheckEnabled) {
-        if (!status.updateVersion.empty()) {
-            if (ui::ButtonRow(locale::TF("Version %s is available", status.updateVersion.c_str()), nullptr, T("Download"), true))
-                actions_.openUpdatePage = true;
-        } else if (ui::ButtonRow(T("Updates"), nullptr, status.updateChecking ? T("Checking...") : T("Check now"), false,
-                                 status.updateChecking)) {
-            actions_.checkUpdates = true;
+    using updater::State;
+    const updater::Status& up = status.update;
+    switch (up.state) {
+    case State::Off:
+        break;
+    case State::Checking:
+        ui::ButtonRow(T("Updates"), nullptr, T("Checking..."), false, true);
+        break;
+    case State::Downloading: {
+        char pct[16];
+        snprintf(pct, sizeof(pct), "%.0f%%", up.progress * 100.f);
+        ui::InfoRow(locale::TF("Downloading version %s", up.version.c_str()), pct, &theme::kTextDim);
+        break;
+    }
+    case State::Ready:
+        if (ui::ButtonRow(locale::TF("Version %s is ready", up.version.c_str()),
+                          T("It installs by itself when no game is running."), T("Install now"), true))
+            actions_.installUpdate = true;
+        break;
+    case State::Available:
+        if (ui::ButtonRow(locale::TF("Version %s is available", up.version.c_str()), nullptr, T("Update"), true))
+            actions_.installUpdate = true;
+        break;
+    case State::Failed:
+        if (up.version.empty()) {
+            if (ui::ButtonRow(T("Update check failed"), up.error.c_str(), T("Try again"), false)) actions_.checkUpdates = true;
+        } else if (ui::ButtonRow(locale::TF("Version %s could not be installed", up.version.c_str()), up.error.c_str(),
+                                 T("Download"), false)) {
+            actions_.openUpdatePage = true;
         }
+        break;
+    default:
+        if (ui::ButtonRow(T("Updates"), up.state == State::UpToDate ? T("You have the newest version.") : nullptr,
+                          T("Check now"), false))
+            actions_.checkUpdates = true;
+        break;
     }
     ui::EndCard();
 

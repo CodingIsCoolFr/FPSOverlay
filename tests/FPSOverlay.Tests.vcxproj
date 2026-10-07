@@ -60,6 +60,7 @@
     <ClCompile Include="unit_tests.cpp" />
     <ClCompile Include="..\src\app\ini.cpp" />
     <ClCompile Include="..\src\app\config.cpp" />
+    <ClCompile Include="..\src\app\release_info.cpp" />
     <ClCompile Include="..\src\capture\frame_stats.cpp" />
     <ClCompile Include="..\src\sensors\lhm_select.cpp" />
   </ItemGroup>

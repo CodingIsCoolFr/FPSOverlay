@@ -3,6 +3,7 @@
 #pragma once
 
 #include "app/config.h"
+#include "app/updater.h"
 #include "render/d3d.h"
 #include "sensors/snapshot.h"
 
@@ -22,9 +23,7 @@ struct UiStatus {
     std::string target;
     float liveFps = 0.f;            // 0 = none
     bool autostart = false;
-    bool updateCheckEnabled = false;
-    bool updateChecking = false;
-    std::string updateVersion;      // newer version available, empty if none
+    updater::Status update;         // update check, download and install state
     std::string configPath;
 };
 
@@ -37,6 +36,7 @@ struct UiActions {
     bool openConfigFolder = false;
     bool checkUpdates = false;
     bool openUpdatePage = false;
+    bool installUpdate = false;     // download if needed, then install now
     int  setAutostart = -1;         // -1 none, 0 off, 1 on
     bool languageChanged = false;
 };

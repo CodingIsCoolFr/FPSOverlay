@@ -99,6 +99,7 @@
     <ClCompile Include="src\app\devtools.cpp" />
     <ClCompile Include="src\app\ini.cpp" />
     <ClCompile Include="src\app\log.cpp" />
+    <ClCompile Include="src\app\release_info.cpp" />
     <ClCompile Include="src\app\updater.cpp" />
     <ClCompile Include="src\capture\frame_capture.cpp" />
     <ClCompile Include="src\capture\frame_stats.cpp" />

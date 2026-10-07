@@ -88,7 +88,8 @@ separate background and text opacity. Hold <kbd>Ctrl</kbd> to drag it anywhere; 
 
 ### ⚙️ Settings that stay out of the way
 A dark settings window where every change applies at once. Then close it: the app lives in
-the tray. Optional start with Windows, with no admin prompt at sign-in.
+the tray. Optional start with Windows, with no admin prompt at sign-in. New versions install
+themselves while you are not playing.
 
 </td>
 </tr>
@@ -132,7 +133,7 @@ the tray. Optional start with Windows, with no admin prompt at sign-in.
 ## Download and start
 
 1. Download **`FPSOverlay.zip`** from the [latest release](https://github.com/CodingIsCoolFr/FPSOverlay/releases/latest).
-2. Unzip it to any folder. Nothing is installed.
+2. Unzip it to any folder. Nothing is installed. From then on the app updates itself.
 3. Run **`FPSOverlay.exe`** and click **Yes** on the admin prompt.
    Windows SmartScreen may warn about an unknown app: click **More info → Run anyway**.
 4. Start a game in **borderless** or **windowed** mode and click into it. The overlay shows up.
@@ -205,7 +206,7 @@ flowchart LR
 | FPS self-test: Direct3D 11 and OpenGL windows at 60, 100, 144 and 237 FPS | Within **0.01 FPS** of the target |
 | CPU use of the sensor thread, every sensor on | **1.9% of one core** |
 | CPU temperature over 15 s at the same load | **65–70 °C** averaged, against 63–76 °C from single readings |
-| Unit tests | **71 checks**, all pass |
+| Unit tests | **80 checks**, all pass |
 
 ## Building from source
 
@@ -243,6 +244,7 @@ tools/        translation and documentation image scripts
 | `--tray` | Start without opening the settings window |
 | `--selftest` | Measure test windows with known frame rates and report the accuracy |
 | `--probe [seconds]` | Print live sensor readings, their CPU cost and every temperature sensor |
+| `--update-check` | Check, download, verify and unpack the latest release next to the exe, without installing it |
 | `--shots <folder> [--lang <code>] [--scale <factor>]` | Render every settings page and overlay layout to PNG |
 | `--demo-frames <folder> [--count <n>] [--layout vertical\|horizontal\|bar]` | Render an animated overlay sequence to transparent PNGs |
 | `--make-icon <file.ico>` | Regenerate the app icon |
@@ -298,8 +300,11 @@ Install PawnIO from *Settings → Sensors*. Modern CPUs only expose their temper
 
 ## Privacy
 
-No telemetry, no accounts. The only network request is one check at start for a newer release
-on this repository. The *About* page shows when an update exists; nothing is downloaded on its own.
+No telemetry, no accounts. The only network traffic is the update check: at start and every
+6 hours the app asks GitHub for the latest release of this repository. When a newer one exists
+and automatic updates are on (the default), it downloads the release zip, checks its SHA-256
+fingerprint against the one GitHub publishes, and installs it when no game is running. Turn this
+off under *Settings → General*; the *About* page then only tells you that an update exists.
 
 ## Third-party components
 

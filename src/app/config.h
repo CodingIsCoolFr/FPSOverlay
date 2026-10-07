@@ -85,6 +85,7 @@ struct Config {
     std::string language = "en-US";
     int  settingsPage = 0;
     bool firstRunDone = false;
+    bool autoUpdate = true;         // download and install new releases by itself
 
     Config();
 };

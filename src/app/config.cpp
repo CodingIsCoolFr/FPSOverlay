@@ -140,6 +140,7 @@ void Load(Config& c, const Ini& ini)
     if (c.language.empty() || c.language.size() > 16) c.language = "en-US";
     c.settingsPage = Clamp(ini.GetInt("General", "settingsPage", 0), 0, 15);
     c.firstRunDone = ini.GetBool("General", "firstRunDone", false);
+    c.autoUpdate = ini.GetBool("General", "autoUpdate", c.autoUpdate);
 }
 
 void Store(const Config& c, Ini& ini)
@@ -148,6 +149,7 @@ void Store(const Config& c, Ini& ini)
     ini.Set("General", "language", c.language);
     ini.SetInt("General", "settingsPage", c.settingsPage);
     ini.SetBool("General", "firstRunDone", c.firstRunDone);
+    ini.SetBool("General", "autoUpdate", c.autoUpdate);
 
     for (const auto& m : kMetrics)
         ini.SetBool("Metrics", m.key, c.show[(int)m.id]);
