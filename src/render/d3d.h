@@ -1,0 +1,52 @@
+// One Direct3D 11 device shared by every window, and a swap chain per window.
+#pragma once
+
+#include <d3d11.h>
+#include <dxgi1_2.h>
+
+#include <string>
+
+class D3D {
+public:
+    bool Init(std::string& error);
+    void Shutdown();
+    ID3D11Device*        Device() const { return device_; }
+    ID3D11DeviceContext* Context() const { return context_; }
+    IDXGIFactory2*       Factory() const { return factory_; }
+
+private:
+    ID3D11Device*        device_ = nullptr;
+    ID3D11DeviceContext* context_ = nullptr;
+    IDXGIFactory2*       factory_ = nullptr;
+};
+
+class SwapTarget {
+public:
+    enum class Mode {
+        Flip,           // normal opaque window (settings)
+        Transparent,    // per-pixel alpha through DWM (HUD); blt model, the only one DWM glass accepts
+    };
+
+    bool Create(const D3D& d3d, HWND hwnd, UINT width, UINT height, Mode mode);
+    void Destroy();
+    bool Resize(UINT width, UINT height);
+    void Bind(const float clear[4]);
+    // Returns false while the window is occluded (minimised, behind an exclusive-fullscreen game);
+    // the caller should then skip rendering until Occluded() turns false again.
+    bool Present(bool vsync);
+    bool Occluded();
+
+    UINT Width() const { return width_; }
+    UINT Height() const { return height_; }
+    bool Valid() const { return swap_ != nullptr; }
+
+private:
+    void CreateView();
+
+    const D3D*              d3d_ = nullptr;
+    IDXGISwapChain1*        swap_ = nullptr;
+    ID3D11RenderTargetView* rtv_ = nullptr;
+    UINT width_ = 0, height_ = 0;
+    Mode mode_ = Mode::Flip;
+    bool occluded_ = false;
+};

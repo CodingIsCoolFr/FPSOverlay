@@ -1,0 +1,4 @@
+; Import library for the one mscoree.dll function a C++/CLI DLL needs (its entry point).
+LIBRARY mscoree.dll
+EXPORTS
+    _CorDllMain

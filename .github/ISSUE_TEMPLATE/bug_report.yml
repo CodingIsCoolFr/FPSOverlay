@@ -1,0 +1,43 @@
+name: Bug report
+description: Something does not work or shows wrong numbers.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we see it too?
+      placeholder: |
+        1. Start the game in borderless mode
+        2. Turn on ...
+        3. ...
+  - type: input
+    id: game
+    attributes:
+      label: Game and graphics API
+      placeholder: e.g. Cyberpunk 2077, DirectX 12
+  - type: input
+    id: version
+    attributes:
+      label: FPS Overlay version
+      description: Shown on the About page.
+      placeholder: e.g. 2.0.0
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Windows version, GPU and CPU
+      placeholder: e.g. Windows 11 24H2, RTX 4080, i9-13900K
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: Paste FPSOverlay.log. It is next to the exe, or in %LOCALAPPDATA%\FPSOverlay.
+      render: text

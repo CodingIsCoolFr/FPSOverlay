@@ -1,0 +1,36 @@
+#include <winver.h>
+#include "app/version.h"
+
+// Application icon (resource 1 is also the tray icon)
+1 ICON "../icon.ico"
+
+// PawnIO driver installer, run on request from Settings > Sensors
+101 RCDATA "../libs/lhwm/PawnIO_setup.exe"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH, 0
+PRODUCTVERSION  APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH, 0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription",  APP_NAME " - frame rate and hardware overlay"
+            VALUE "FileVersion",      APP_VERSION
+            VALUE "InternalName",     "FPSOverlay"
+            VALUE "LegalCopyright",   "GNU General Public License v3. See NOTICE.md."
+            VALUE "OriginalFilename", "FPSOverlay.exe"
+            VALUE "ProductName",      APP_NAME
+            VALUE "ProductVersion",   APP_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END
