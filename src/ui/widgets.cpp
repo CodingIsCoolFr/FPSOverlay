@@ -483,23 +483,24 @@ bool ComboItem(const char* label, bool selected, const char* detail)
     const float em = ImGui::GetFontSize();
     ImGui::PushID(label);
     const ImVec2 p = ImGui::GetCursorScreenPos();
-    const float w = std::max(ImGui::GetContentRegionAvail().x, em * 12.f);
+    const float iconW = em * 1.5f;
+    const ImVec2 ls = TextSize(ImGui::GetFont(), em, label);
+    const ImVec2 ds = detail && detail[0] ? TextSize(ImGui::GetFont(), em * 0.82f, detail) : ImVec2(0, 0);
+    // Wide enough for the longest text: the list grows past the box instead of cutting words off.
+    const float w = std::max({ ImGui::GetContentRegionAvail().x, em * 12.f, iconW + std::max(ls.x, ds.x) + em * 0.8f });
     const float h = std::round(em * (detail && detail[0] ? 2.4f : 1.8f));
     const bool pressed = ImGui::Selectable("##item", selected, 0, ImVec2(w, h));
     if (selected) ImGui::SetItemDefaultFocus();
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    const float iconW = em * 1.5f;
     if (selected && g_icons)
         DrawText(dl, ImGui::GetFont(), em, ImVec2(g_rtl ? p.x + w - iconW : p.x + em * 0.2f, p.y + (h - em) * 0.5f - em * 0.1f),
                  theme::Accent(), theme::icon::Check);
     const float textX0 = g_rtl ? p.x : p.x + iconW;
     const float textW = w - iconW;
-    const ImVec2 ls = TextSize(ImGui::GetFont(), em, label);
     float ty = p.y + (h - ls.y) * 0.5f;
     if (detail && detail[0]) ty = p.y + em * 0.2f;
     DrawText(dl, ImGui::GetFont(), em, ImVec2(StartX(textX0, textW, ls.x), ty), theme::kText, label);
     if (detail && detail[0]) {
-        const ImVec2 ds = TextSize(ImGui::GetFont(), em * 0.82f, detail);
         DrawText(dl, ImGui::GetFont(), em * 0.82f, ImVec2(StartX(textX0, textW, ds.x), ty + ls.y), theme::kTextDim, detail);
     }
     ImGui::PopID();

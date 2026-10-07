@@ -633,15 +633,42 @@ void SettingsWindow::PageSensors(const UiStatus& status, const SensorSnapshot& s
                 if (c.id == id) return c.label;
             return {};
         };
+        // Plain names for the CPU readings people choose between; the rest keep LHM's names
+        // ("P-Core #3", "CCD1 (Tdie)").
+        auto tempName = [](const std::string& lhmName, const char** detail) -> std::string {
+            const char* d = nullptr;
+            std::string name = lhmName;
+            if (lhmName == "CPU Package" || lhmName == "Package" || lhmName == "Core (Tctl/Tdie)" || lhmName == "Core (Tdie)") {
+                name = T("Package");
+                d = T("The temperature the CPU itself reports. Best for spotting overheating.");
+            } else if (lhmName == "Core Max") {
+                name = T("Hottest core");
+            } else if (lhmName == "Core Average") {
+                name = T("Average of all cores");
+                d = T("Lower and steadier than Package.");
+            } else if (lhmName == "Core (Tctl)") {
+                name = T("Control temperature");
+                d = T("Includes a fan-control offset, so it reads higher than the real temperature.");
+            }
+            if (detail) *detail = d;
+            return name;
+        };
         std::string used = labelFor(s.cpuTempChoices, s.cpuTempSensorUsed);
+        if (!used.empty()) used = tempName(used, nullptr);
         std::string preview = cfg_->cpuTempSensor.empty()
                                   ? std::string(T("Automatic")) + (used.empty() ? "" : "  (" + used + ")")
-                                  : labelFor(s.cpuTempChoices, cfg_->cpuTempSensor);
+                                  : tempName(labelFor(s.cpuTempChoices, cfg_->cpuTempSensor), nullptr);
         if (preview.empty()) preview = cfg_->cpuTempSensor;
-        if (ui::BeginComboRow(T("Temperature sensor"), T("Package is the usual choice. Core Max shows the hottest core."), preview.c_str())) {
+        if (ui::BeginComboRow(T("Temperature sensor"), T("Package is the CPU's own reading. Average of all cores is lower and steadier."),
+                              preview.c_str())) {
             if (ui::ComboItem(T("Automatic"), cfg_->cpuTempSensor.empty())) cfg_->cpuTempSensor.clear();
-            for (const auto& c : s.cpuTempChoices)
-                if (ui::ComboItem(c.label.c_str(), cfg_->cpuTempSensor == c.id)) cfg_->cpuTempSensor = c.id;
+            for (const auto& c : s.cpuTempChoices) {
+                const char* detail = nullptr;
+                const std::string name = tempName(c.label, &detail);
+                ImGui::PushID(c.id.c_str());    // two LHM names can map to the same plain name
+                if (ui::ComboItem(name.c_str(), cfg_->cpuTempSensor == c.id, detail)) cfg_->cpuTempSensor = c.id;
+                ImGui::PopID();
+            }
             ui::EndComboRow();
         }
         used = labelFor(s.fanChoices, s.cpuFanSensorUsed);

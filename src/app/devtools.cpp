@@ -43,6 +43,8 @@ void Out(const char* fmt, ...)
     DWORD w = 0;
     HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
     if (h && h != INVALID_HANDLE_VALUE) WriteFile(h, buf, (DWORD)strlen(buf), &w, nullptr);
+    size_t n = strlen(buf);
+    while (n && buf[n - 1] == '\n') buf[--n] = 0;     // the log ends each line itself
     logx::Info("%s", buf);
 }
 
@@ -318,23 +320,54 @@ int DemoFrames(const std::wstring& dir, int count, cfg::Layout layout, int scale
     return failures;
 }
 
-int Probe()
+int Probe(int seconds)
 {
     SensorHub hub;
     SensorRequest r;
     r.gpuHotspot = r.gpuPower = r.gpuClock = r.gpuMemClock = r.gpuFan = true;
     r.cpuPower = r.cpuClock = r.cpuFan = true;
     r.wantChoices = true;
-    r.intervalMs = 500;
+    r.intervalMs = 1000;    // the app's default
     hub.Start(r);
-    for (int i = 0; i < 6; ++i) {
-        Sleep(1000);
-        const SensorSnapshot s = hub.Snapshot();
-        Out("[%d] tick %.1f ms | GPU load %.0f temp %.0f hot %.1f power %.0f clk %.0f vram %.0f/%.0f | CPU load %.0f temp %.0f power %.1f clk %.0f | RAM %.1f/%.1f | lhm=%d nvml=%d pdh=%d\n",
-            i, s.status.tickMs, s.gpu.load, s.gpu.temp, s.gpu.hotspot, s.gpu.power, s.gpu.coreClock, s.gpu.vramUsedMB,
-            s.gpu.vramTotalMB, s.cpu.load, s.cpu.temp, s.cpu.power, s.cpu.clock, s.ram.usedGB, s.ram.totalGB,
-            (int)s.status.lhm, (int)s.status.nvml, (int)s.status.pdh);
+    auto cpuSeconds = [] {
+        FILETIME c, e, k, u;
+        GetProcessTimes(GetCurrentProcess(), &c, &e, &k, &u);
+        auto s = [](const FILETIME& f) { return (((ULONGLONG)f.dwHighDateTime << 32) | f.dwLowDateTime) / 1e7; };
+        return s(k) + s(u);
+    };
+    Sleep(2000);    // skip the LibreHardwareMonitor start-up
+
+    // Two halves: the app's CPU sampling, then one reading per tick, to compare cost and steadiness.
+    const int steps[2] = { r.cpuSampleStepMs, 0 };
+    for (int phase = 0; phase < 2; ++phase) {
+        r.cpuSampleStepMs = steps[phase];
+        hub.SetRequest(r);
+        if (phase) Sleep(1500);
+        Out("-- CPU readings %s --\n", steps[phase] ? "4 per second, mean shown" : "1 per second");
+        const double cpu0 = cpuSeconds();
+        const ULONGLONG wall0 = GetTickCount64();
+        float tMin = 1e9f, tMax = -1e9f;
+        for (int i = 0; i < std::max(1, seconds / 2); ++i) {
+            Sleep(1000);
+            const SensorSnapshot s = hub.Snapshot();
+            if (s.cpu.temp == s.cpu.temp) {
+                tMin = std::min(tMin, s.cpu.temp);
+                tMax = std::max(tMax, s.cpu.temp);
+            }
+            Out("[%d] tick %.1f ms, cpu read %.1f ms | GPU load %.0f temp %.0f hot %.1f power %.0f clk %.0f vram %.0f/%.0f | CPU load %.0f temp %.1f power %.1f clk %.0f | RAM %.1f/%.1f | lhm=%d nvml=%d pdh=%d\n",
+                i, s.status.tickMs, s.status.cpuSampleMs, s.gpu.load, s.gpu.temp, s.gpu.hotspot, s.gpu.power, s.gpu.coreClock,
+                s.gpu.vramUsedMB, s.gpu.vramTotalMB, s.cpu.load, s.cpu.temp, s.cpu.power, s.cpu.clock, s.ram.usedGB,
+                s.ram.totalGB, (int)s.status.lhm, (int)s.status.nvml, (int)s.status.pdh);
+        }
+        Out("Sensor CPU use: %.2f%% of one core\n", 100.0 * (cpuSeconds() - cpu0) / ((GetTickCount64() - wall0) / 1000.0));
+        if (tMax >= tMin) Out("CPU temperature shown: %.1f to %.1f C\n", tMin, tMax);
     }
+    r.dumpTemps = true;
+    hub.SetRequest(r);
+    Sleep(1500);
+    const SensorSnapshot last = hub.Snapshot();
+    Out("Every temperature sensor (last reading):\n");
+    for (const std::string& line : last.tempDump) Out("  %s\n", line.c_str());
     hub.Stop();
     return 0;
 }
@@ -709,7 +742,7 @@ int Run(int argc, wchar_t** argv, const std::wstring&)
             }
             return DemoFrames(dir, std::clamp(count, 1, 900), layout, std::clamp(scale, 50, 250), std::clamp(accent, 0, 7), all);
         }
-        if (a == L"--probe") return Probe();
+        if (a == L"--probe") return Probe(i + 1 < argc && argv[i + 1][0] != L'-' ? std::clamp(_wtoi(argv[i + 1]), 1, 600) : 6);
         if (a == L"--make-icon" && i + 1 < argc) return MakeIcon(argv[i + 1]);
         if (a == L"--selftest") return SelfTest();
         if (a == L"--render-test" && i + 3 < argc) {

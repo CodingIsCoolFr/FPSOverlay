@@ -11,6 +11,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <chrono>
 
 bool SensorRequest::operator==(const SensorRequest& o) const
@@ -19,8 +20,9 @@ bool SensorRequest::operator==(const SensorRequest& o) const
            gpuPower == o.gpuPower && gpuClock == o.gpuClock && gpuMemClock == o.gpuMemClock &&
            gpuFan == o.gpuFan && vram == o.vram && cpuLoad == o.cpuLoad && cpuTemp == o.cpuTemp &&
            cpuPower == o.cpuPower && cpuClock == o.cpuClock && cpuFan == o.cpuFan && ram == o.ram &&
-           wantChoices == o.wantChoices && gpuKey == o.gpuKey && cpuTempPref == o.cpuTempPref &&
-           cpuFanPref == o.cpuFanPref && intervalMs == o.intervalMs;
+           wantChoices == o.wantChoices && dumpTemps == o.dumpTemps && gpuKey == o.gpuKey && cpuTempPref == o.cpuTempPref &&
+           cpuFanPref == o.cpuFanPref && intervalMs == o.intervalMs &&
+           cpuSampleStepMs == o.cpuSampleStepMs;
 }
 
 namespace {
@@ -161,6 +163,33 @@ struct SensorHub::Impl {
 
     std::string cpuName;
     ULONGLONG lastPawnioCheck = 0;
+
+    // CPU readings taken between ticks; each tick shows their mean (see CpuSample).
+    int cpuHw = -1;
+    int cpuTempIdx = -1, cpuPowerIdx = -1;
+    double tempSum = 0, powerSum = 0;
+    int tempCount = 0, powerCount = 0;
+    float cpuSampleMs = 0.f;
+
+    void CpuSample()
+    {
+        if (cpuHw < 0 || !lhm.open) return;
+        const auto t0 = std::chrono::steady_clock::now();
+        lhm.Update(cpuHw);
+        cpuSampleMs = (float)std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        const float t = lhm.Value(cpuTempIdx);
+        if (t == t && t > 0.f) { tempSum += t; ++tempCount; }
+        const float w = lhm.Value(cpuPowerIdx);
+        if (w == w && w > 0.05f) { powerSum += w; ++powerCount; }    // without the driver LHM reports 0 W
+    }
+    // Mean of the readings since the last call, then starts over.
+    void TakeCpuMeans(float& temp, float& power)
+    {
+        temp = tempCount ? (float)(tempSum / tempCount) : kNoValue;
+        power = powerCount ? (float)(powerSum / powerCount) : kNoValue;
+        tempSum = powerSum = 0;
+        tempCount = powerCount = 0;
+    }
 };
 
 SensorHub::SensorHub() : impl_(std::make_unique<Impl>()) {}
@@ -347,13 +376,21 @@ void SensorHub::Run()
             int cpuHw = -1;
             if (req.cpuTemp && m.picks.cpuTemp >= 0) cpuHw = sensors[m.picks.cpuTemp].hardware;
             else if (req.cpuPower && m.picks.cpuPower >= 0) cpuHw = sensors[m.picks.cpuPower].hardware;
-            if (cpuHw >= 0) m.lhm.Update(cpuHw);
-            if (req.cpuTemp) snap.cpu.temp = m.lhm.Value(m.picks.cpuTemp);
-            if (req.cpuPower) {
-                // Without the driver LHM reports 0 W instead of "no value".
-                const float w = m.lhm.Value(m.picks.cpuPower);
-                snap.cpu.power = (Has(w) && w > 0.05f) ? w : kNoValue;
+            const int tempIdx = req.cpuTemp ? m.picks.cpuTemp : -1;
+            const int powerIdx = req.cpuPower ? m.picks.cpuPower : -1;
+            if (cpuHw != m.cpuHw || tempIdx != m.cpuTempIdx || powerIdx != m.cpuPowerIdx) {
+                float drop1, drop2;
+                m.TakeCpuMeans(drop1, drop2);   // readings of another sensor: discard
             }
+            m.cpuHw = cpuHw;
+            m.cpuTempIdx = tempIdx;
+            m.cpuPowerIdx = powerIdx;
+            m.CpuSample();
+            float meanTemp, meanPower;
+            m.TakeCpuMeans(meanTemp, meanPower);
+            if (req.cpuTemp) snap.cpu.temp = meanTemp;
+            if (req.cpuPower) snap.cpu.power = meanPower;
+            status.cpuSampleMs = cpuHw >= 0 ? m.cpuSampleMs : 0.f;
             if (req.cpuFan && m.picks.cpuFan >= 0) {
                 m.lhm.Update(sensors[m.picks.cpuFan].hardware);
                 snap.cpu.fanRpm = m.lhm.Value(m.picks.cpuFan);
@@ -400,6 +437,22 @@ void SensorHub::Run()
                 snap.fanChoices.push_back({ sensors[idx].id, sensors[idx].hwName + " / " + sensors[idx].name });
             if (m.picks.cpuTemp >= 0) snap.cpuTempSensorUsed = sensors[m.picks.cpuTemp].id;
             if (m.picks.cpuFan >= 0) snap.cpuFanSensorUsed = sensors[m.picks.cpuFan].id;
+
+            if (req.dumpTemps) {
+                std::vector<int> updated;
+                for (int i = 0; i < (int)sensors.size(); ++i) {
+                    const LhmSensor& s = sensors[i];
+                    if (s.type != "Temperature") continue;
+                    if (std::find(updated.begin(), updated.end(), s.hardware) == updated.end()) {
+                        updated.push_back(s.hardware);
+                        m.lhm.Update(s.hardware);
+                    }
+                    char line[320];
+                    snprintf(line, sizeof(line), "%-11s %-32.32s %-30.30s %6.1f  %s%s", s.hwType.c_str(), s.hwName.c_str(),
+                             s.name.c_str(), m.lhm.Value(i), s.id.c_str(), i == m.picks.cpuTemp ? "  <- shown as CPU" : "");
+                    snap.tempDump.push_back(line);
+                }
+            }
         }
 
         // ── Status ──
@@ -435,9 +488,25 @@ void SensorHub::Run()
         std::unique_lock<std::mutex> lock(mutex_);
         // The very first wait is short so the deferred LHM start happens right away.
         const int waitMs = (needLhm && !m.lhmTried) ? 50 : req.intervalMs;
-        cv_.wait_for(lock, std::chrono::milliseconds(waitMs), [this] {
-            return !running_ || requestChanged_ || installPawnIo_;
-        });
+        const auto wake = [this] { return !running_ || requestChanged_ || installPawnIo_; };
+        const auto until = tickStart + std::chrono::milliseconds(waitMs);
+        // A CPU's temperature jumps several degrees from one moment to the next, because boost
+        // bursts last milliseconds. Reading it four times a second and showing the mean gives
+        // the real temperature over the interval, not one random moment of it.
+        bool woken = false;
+        const std::chrono::milliseconds step(req.cpuSampleStepMs);
+        if (m.cpuHw >= 0 && m.lhm.open && step.count() > 0) {
+            for (auto next = tickStart + step; next + step / 2 < until; next += step) {
+                if (cv_.wait_until(lock, next, wake)) {
+                    woken = true;
+                    break;
+                }
+                lock.unlock();
+                m.CpuSample();
+                lock.lock();
+            }
+        }
+        if (!woken) cv_.wait_until(lock, until, wake);
     }
 
     m.lhm.Close();

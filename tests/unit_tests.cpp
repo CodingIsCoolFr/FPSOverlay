@@ -213,6 +213,16 @@ static void TestLhmSelect()
     CHECK(p.cpuTemp == 1);
     CHECK(p.cpuPower == 2);
     CHECK(p.cpuFan == -1);
+
+    // Ryzen with a Tctl offset (1800X: +20 °C): the real die temperature wins, Tctl ranks last.
+    std::vector<LhmSensor> zen1 = {
+        S(0, "AMD Ryzen 7 1800X", "Cpu", "Core (Tctl)", "Temperature", "/amdcpu/0/temperature/0"),
+        S(0, "AMD Ryzen 7 1800X", "Cpu", "Core (Tdie)", "Temperature", "/amdcpu/0/temperature/1"),
+        S(0, "AMD Ryzen 7 1800X", "Cpu", "CCD1 (Tdie)", "Temperature", "/amdcpu/0/temperature/2"),
+    };
+    p = SelectLhmSensors(zen1, "", "");
+    CHECK(p.cpuTemp == 1);
+    CHECK(p.cpuTempChoices.size() == 3 && p.cpuTempChoices.back() == 0);
 }
 
 // ── Version comparison (update check) ──────────────────────────────────────

@@ -65,7 +65,7 @@ power, clock and fan. System memory, game name and a clock.
 
 ### 🪶 Light as a feather
 Sensors are read on their own thread. NVIDIA cards are read through the driver's own NVML
-library, which takes microseconds. The whole app uses about **1% of one CPU core**.
+library, which takes microseconds. Every sensor together costs under **2% of one CPU core**.
 
 </td>
 <td valign="top">
@@ -191,6 +191,10 @@ flowchart LR
 - **Sensors.** Each value comes from the fastest source that has it. LibreHardwareMonitor is only
   used for what nothing else gives (CPU temperature, CPU power, motherboard fans), and only the
   hardware on screen is updated.
+- **CPU temperature.** A modern CPU's temperature jumps several degrees from one moment to the
+  next. The app reads it four times a second and shows the mean, so the number is the real
+  temperature over that second, not one random moment of it. On Ryzen chips that add a
+  fan-control offset (Tctl), the real die temperature (Tdie) is used.
 - **Overlay.** A per-pixel transparent window, exactly the size of its content. It ignores the
   mouse until you hold <kbd>Ctrl</kbd>, and can be hidden from screen recordings.
 
@@ -199,9 +203,9 @@ flowchart LR
 | Test | Result |
 |---|---|
 | FPS self-test: Direct3D 11 and OpenGL windows at 60, 100, 144 and 237 FPS | Within **0.01 FPS** of the target |
-| CPU use of the app, overlay on screen | About **1% of one core** |
-| One full sensor read (NVIDIA, Intel) | About **4.5 ms**, off the overlay thread |
-| Unit tests | **69 checks**, all pass |
+| CPU use of the sensor thread, every sensor on | **1.9% of one core** |
+| CPU temperature over 15 s at the same load | **65–70 °C** averaged, against 63–76 °C from single readings |
+| Unit tests | **71 checks**, all pass |
 
 ## Building from source
 
@@ -238,7 +242,7 @@ tools/        translation and documentation image scripts
 |---|---|
 | `--tray` | Start without opening the settings window |
 | `--selftest` | Measure test windows with known frame rates and report the accuracy |
-| `--probe` | Print live sensor readings for six seconds |
+| `--probe [seconds]` | Print live sensor readings, their CPU cost and every temperature sensor |
 | `--shots <folder> [--lang <code>] [--scale <factor>]` | Render every settings page and overlay layout to PNG |
 | `--demo-frames <folder> [--count <n>] [--layout vertical\|horizontal\|bar]` | Render an animated overlay sequence to transparent PNGs |
 | `--make-icon <file.ico>` | Regenerate the app icon |
@@ -275,6 +279,15 @@ the *Performance Log Users* group).
 
 Switch the game to **borderless** or **windowed** mode. Exclusive fullscreen draws over every
 other window, this overlay included.
+</details>
+
+<details>
+<summary><b>Why does another app show a different CPU temperature?</b></summary>
+
+Apps pick different CPU readings. FPS Overlay shows **Package**, the temperature the CPU itself
+reports, as HWiNFO and Intel's and AMD's own tools do. Some apps, like NZXT CAM, can show the
+**average of all cores**, which is lower. To match them, pick *Average of all cores* under
+*Settings → Sensors → Temperature sensor*.
 </details>
 
 <details>

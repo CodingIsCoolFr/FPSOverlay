@@ -25,9 +25,13 @@ int CpuTempScore(const LhmSensor& s)
     const std::string n = Lower(s.name);
     if (Has(n, "distance to tjmax")) return -1;          // headroom, not a temperature
     if (n == "core (tctl/tdie)") return 100;             // AMD Ryzen, what Ryzen Master shows
+    // Ryzen 1000/2000 "X" chips report Tctl with a +10 or +20 °C fan-control offset; LHM then
+    // splits it into Tctl and the real die temperature, Tdie.
+    if (n == "core (tdie)") return 98;
     if (n == "cpu package") return 95;                   // Intel
     if (n == "package") return 90;
-    if ((Has(n, "tctl") || Has(n, "tdie")) && !Has(n, "ccd")) return 85;
+    if (Has(n, "tctl") && !Has(n, "tdie")) return 30;    // offset control value: only if nothing better
+    if (Has(n, "tdie") && !Has(n, "ccd")) return 85;
     if (n == "core max") return 70;
     if (n == "core average") return 60;
     if (Has(n, "ccd")) return 50;

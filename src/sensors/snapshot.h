@@ -59,6 +59,7 @@ struct SensorStatus {
     std::string pawnioMessage;      // failure detail (English)
     bool cpuTempAvailable = false;
     float lhmUpdateMs = 0.f;        // cost of the last LibreHardwareMonitor update
+    float cpuSampleMs = 0.f;        // cost of one CPU reading (taken 4 times a second)
     float tickMs = 0.f;             // cost of the last full sensor tick
 };
 
@@ -80,4 +81,5 @@ struct SensorSnapshot {
     std::vector<LhmSensorChoice> fanChoices;
     std::string cpuTempSensorUsed;                 // identifiers actually used
     std::string cpuFanSensorUsed;
+    std::vector<std::string> tempDump;             // every LHM temperature, when SensorRequest::dumpTemps is set
 };

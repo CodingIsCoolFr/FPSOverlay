@@ -18,10 +18,12 @@ struct SensorRequest {
     bool cpuLoad = true, cpuTemp = true, cpuPower = false, cpuClock = false, cpuFan = false;
     bool ram = true;
     bool wantChoices = false;       // settings window is open: load LHM to list sensors
+    bool dumpTemps = false;         // diagnostics (--probe): list every temperature LHM has
     std::string gpuKey;
     std::string cpuTempPref;
     std::string cpuFanPref;
     int intervalMs = 1000;
+    int cpuSampleStepMs = 250;      // extra CPU temperature/power readings between ticks (0 = none)
 
     bool operator==(const SensorRequest& o) const;
 };
