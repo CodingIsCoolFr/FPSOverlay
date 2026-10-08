@@ -475,8 +475,11 @@ void SettingsWindow::PageMetrics(const SensorSnapshot& s)
             std::string badge;
             ImVec4 color;
             const bool hasBadge = live(info.id, badge, color);
-            ui::ToggleRow(T(info.label), &cfg_->show[mi], info.hint ? T(info.hint) : nullptr,
-                          hasBadge ? badge.c_str() : nullptr, hasBadge ? &color : nullptr);
+            // "Needs the PawnIO driver" only while it is missing (the fan note stays while no fan is found).
+            const char* hint = info.hint ? T(info.hint) : nullptr;
+            const bool driverMetric = info.id == cfg::Metric::CpuTemp || info.id == cfg::Metric::CpuPower || info.id == cfg::Metric::CpuFan;
+            if (driverMetric && s.status.pawnioInstalled && !(info.id == cfg::Metric::CpuFan && !Has(s.cpu.fanRpm))) hint = nullptr;
+            ui::ToggleRow(T(info.label), &cfg_->show[mi], hint, hasBadge ? badge.c_str() : nullptr, hasBadge ? &color : nullptr);
         }
         ui::EndCard();
     }
