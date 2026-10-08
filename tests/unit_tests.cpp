@@ -5,6 +5,7 @@
 #include "app/game_visibility.h"
 #include "app/ini.h"
 #include "app/updater.h"
+#include "capture/capture_watchdog.h"
 #include "capture/frame_stats.h"
 #include "capture/game_detect.h"
 #include "sensors/cpu_direct.h"
@@ -226,6 +227,76 @@ static void TestGameVisibility()
     CHECK(step(F::GameScreen));
 }
 
+// ── Capture watchdog ────────────────────────────────────────────────────────
+
+static void TestCaptureWatchdog()
+{
+    CaptureWatchdog w;
+    CaptureWatchdog::Inputs in;
+    in.running = true;
+    uint64_t t = 0;
+    // One check a second, like the app. Healthy: events grow, heartbeats come back.
+    auto step = [&](uint64_t newEvents, int missing) {
+        in.events += newEvents;
+        in.heartbeatsMissing = missing;
+        t += 1000;
+        return w.Update(in, t);
+    };
+    for (int i = 0; i < 10; ++i) CHECK(!step(500, 1));
+
+    // A quiet desktop (no presents at all) with the heartbeat fine: nothing to fix.
+    for (int i = 0; i < 30; ++i) CHECK(!step(0, 1));
+
+    // The 17:19 failure: the session looks fine but nothing comes out. Heartbeats pile up.
+    CHECK(!step(0, 2));
+    CHECK(!step(0, 4));
+    CHECK(!step(0, 6));
+    CHECK(step(0, 8));
+    CHECK(w.Restarts() == 1);
+    // The restart did not help: the next try waits 10 s, then 20 s.
+    for (int i = 0; i < 9; ++i) CHECK(!step(0, 9));
+    CHECK(step(0, 9));
+    for (int i = 0; i < 19; ++i) CHECK(!step(0, 9));
+    CHECK(step(0, 9));
+    CHECK(w.Restarts() == 3);
+    // Events flow again: the back-off starts over.
+    CHECK(!step(300, 0));
+    CHECK(w.Restarts() == 0);
+
+    // A game in front but no presents from anyone for 6 s (heartbeat fine): restart.
+    in.gameInFront = true;
+    in.heartbeatsMissing = 1;
+    CaptureWatchdog g;
+    in.events = 1;
+    t = 0;
+    auto gstep = [&](uint64_t newEvents) { in.events += newEvents; t += 1000; return g.Update(in, t); };
+    CHECK(!gstep(0));                           // first look: baseline
+    CHECK(!gstep(100));
+    for (int i = 0; i < 5; ++i) CHECK(!gstep(0));
+    CHECK(gstep(0));
+    // A loading screen shorter than 6 s does not trigger it.
+    CaptureWatchdog l;
+    t = 0;
+    auto lstep = [&](uint64_t newEvents) { in.events += newEvents; t += 1000; return l.Update(in, t); };
+    for (int round = 0; round < 3; ++round) {
+        for (int i = 0; i < 4; ++i) CHECK(!lstep(0));
+        CHECK(!lstep(200));
+    }
+    // Alt-tabbed out (game not in front): no presents is fine.
+    in.gameInFront = false;
+    for (int i = 0; i < 20; ++i) CHECK(!lstep(0));
+
+    // The session ended under us, or never started: restart at once.
+    CaptureWatchdog e;
+    in.consumerEnded = true;
+    CHECK(e.Update(in, 1000));
+    CaptureWatchdog n;
+    in.consumerEnded = false;
+    in.running = false;
+    CHECK(n.Update(in, 1000));
+    CHECK(!n.Update(in, 2000));                 // and then it backs off
+}
+
 // ── Frame statistics ────────────────────────────────────────────────────────
 
 static void TestFrameStats()
@@ -438,6 +509,7 @@ int main()
     TestConfig();
     TestGameDetect();
     TestGameVisibility();
+    TestCaptureWatchdog();
     TestFrameStats();
     TestLhmSelect();
     printf("%d checks, %d failures\n", g_checks, g_failures);

@@ -3,6 +3,7 @@
 
 #include "app/config.h"
 #include "app/game_visibility.h"
+#include "capture/capture_watchdog.h"
 #include "capture/frame_capture.h"
 #include "capture/target_tracker.h"
 #include "render/d3d.h"
@@ -36,6 +37,7 @@ private:
     void SaveNow();
     SensorRequest BuildSensorRequest() const;
     bool GameShown(ULONGLONG now, const FrameCapture::Result& frames);
+    void CheckCapture(ULONGLONG now);
     void HandleUiActions(const UiActions& a);
     void RefreshAutostartAsync();
 
@@ -71,6 +73,8 @@ private:
     bool elevated_ = false;
     ULONGLONG saveDue_ = 0;
     ULONGLONG lastTargetUpdate_ = 0;
+    CaptureWatchdog captureWatchdog_;
+    ULONGLONG lastCaptureCheck_ = 0;
     GameVisibility gameVis_;        // "Hide when no game is running"
     int gameLogState_ = -1;         // last logged inputs of that decision
     DWORD gameLogPid_ = 0;

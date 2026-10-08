@@ -102,6 +102,7 @@
     <ClCompile Include="src\app\log.cpp" />
     <ClCompile Include="src\app\release_info.cpp" />
     <ClCompile Include="src\app\updater.cpp" />
+    <ClCompile Include="src\capture\capture_watchdog.cpp" />
     <ClCompile Include="src\capture\frame_capture.cpp" />
     <ClCompile Include="src\capture\frame_stats.cpp" />
     <ClCompile Include="src\capture\game_detect.cpp" />
@@ -146,6 +147,7 @@
     <ClInclude Include="src\app\log.h" />
     <ClInclude Include="src\app\updater.h" />
     <ClInclude Include="src\app\version.h" />
+    <ClInclude Include="src\capture\capture_watchdog.h" />
     <ClInclude Include="src\capture\frame_capture.h" />
     <ClInclude Include="src\capture\frame_stats.h" />
     <ClInclude Include="src\capture\game_detect.h" />

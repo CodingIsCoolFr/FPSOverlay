@@ -8,6 +8,7 @@
 #include "capture/frame_stats.h"
 
 #include <windows.h>
+#include <evntprov.h>
 #include <evntrace.h>
 
 #include <atomic>
@@ -39,6 +40,13 @@ public:
     bool Start(std::string& error);
     void Stop();
     bool Running() const { return running_.load(); }
+    // The last Start failed for lack of administrator rights (retrying will not help).
+    bool AccessDenied() const { return accessDenied_; }
+
+    // Health, for CaptureWatchdog. A heartbeat event goes into the session twice a second and
+    // must come back out through the consumer.
+    int HeartbeatsMissing() const { return heartbeatsMissing_.load(); }
+    bool ConsumerEnded() const { return consumerEnded_.load(); }
 
     // Seconds on the same clock as the frame samples.
     double Now() const;
@@ -61,6 +69,12 @@ public:
 
     // Diagnostics
     uint64_t EventsSeen() const { return events_.load(); }
+    uint64_t FlushFailures() const { return flushFailures_.load(); }
+    // One line about pid: per source, presents in the last second and the age of the newest
+    // event, the source in use, and the age of the newest counted frame.
+    std::string Describe(DWORD pid) const;
+    // The session's own counters (buffers written, events and buffers lost), for the log.
+    std::string SessionStats() const;
 
 private:
     struct Chain {
@@ -95,6 +109,14 @@ private:
     std::thread  consumer_;
     std::thread  flusher_;
     std::atomic<bool> running_{ false };
+    bool         accessDenied_ = false;
+    REGHANDLE    heartbeat_ = 0;
+    std::atomic<int>  heartbeatsMissing_{ 0 };
+    std::atomic<bool> consumerEnded_{ false };
+    std::atomic<bool> firstHeartbeat_{ false };     // not logged yet for this session
+    HANDLE       consumerExit_ = nullptr;           // set when ProcessTrace returns
+    std::atomic<unsigned> generation_{ 0 };         // which Start a consumer thread belongs to
+    uint64_t     startQpc_ = 0;
     std::mutex   flushMutex_;
     std::condition_variable flushCv_;
     double       qpcFreq_ = 1.0;
@@ -104,6 +126,7 @@ private:
     mutable std::mutex mutex_;
     std::unordered_map<DWORD, std::unique_ptr<Proc>> procs_;
     std::atomic<uint64_t> events_{ 0 };
+    std::atomic<uint64_t> flushFailures_{ 0 };
 };
 
 const char* PresentSourceName(PresentSource s);

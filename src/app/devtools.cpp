@@ -20,6 +20,7 @@
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wincodec.h>
+#include <tlhelp32.h>
 #include <GL/gl.h>
 
 #include <algorithm>
@@ -392,6 +393,49 @@ int Probe(int seconds)
     Out("Every temperature sensor (last reading):\n");
     for (const std::string& line : last.tempDump) Out("  %s\n", line.c_str());
     hub.Stop();
+    return 0;
+}
+
+// Frame rate of one process, by pid or exe name, as the overlay would measure it.
+int Measure(const std::wstring& target, int seconds)
+{
+    DWORD pid = (DWORD)_wtoi(target.c_str());
+    if (!pid) {
+        std::wstring name = target;
+        if (name.size() < 4 || _wcsicmp(name.c_str() + name.size() - 4, L".exe") != 0) name += L".exe";
+        HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        PROCESSENTRY32W pe = { sizeof(pe) };
+        for (BOOL ok = Process32FirstW(snap, &pe); ok; ok = Process32NextW(snap, &pe))
+            if (_wcsicmp(pe.szExeFile, name.c_str()) == 0) { pid = pe.th32ProcessID; break; }
+        CloseHandle(snap);
+    }
+    if (!pid) {
+        Out("process not found: %s\n", win::ToUtf8(target).c_str());
+        return 2;
+    }
+    FrameCapture cap;
+    std::string err;
+    if (!cap.Start(err)) {
+        Out("frame capture failed: %s\n", err.c_str());
+        return 3;
+    }
+    for (int i = 0; i < seconds; ++i) {
+        Sleep(1000);
+        const FrameCapture::Result r = cap.Query(pid, 1.0, 10.0);
+        Out("pid %lu: %7.2f fps, frame time %6.2f ms, %d frames in window, source %s, last frame %.2f s ago, %llu events, "
+            "%llu flush failures\n   %s\n", pid, r.stats.valid ? r.stats.fps : 0.f, r.stats.frameTimeMs, r.stats.frames,
+            PresentSourceName(r.source), r.secondsSinceLastFrame > 1e8 ? -1.0 : r.secondsSinceLastFrame,
+            (unsigned long long)cap.EventsSeen(), (unsigned long long)cap.FlushFailures(), cap.Describe(pid).c_str());
+    }
+    // Who else draws, for context.
+    std::string others;
+    for (DWORD p : cap.PresentingPids(2.0)) {
+        win::ProcessInfo info;
+        win::QueryProcessInfo(p, info);
+        others += (others.empty() ? "" : ", ") + (info.exe.empty() ? std::to_string(p) : info.exe);
+    }
+    Out("drawing in the last 2 s: %s\n", others.empty() ? "nothing" : others.c_str());
+    cap.Stop();
     return 0;
 }
 
@@ -799,6 +843,7 @@ int Run(int argc, wchar_t** argv, const std::wstring&)
             }
             return DemoFrames(dir, std::clamp(count, 1, 900), layout, std::clamp(scale, 50, 250), std::clamp(accent, 0, 7), all);
         }
+        if (a == L"--measure" && i + 1 < argc) return Measure(argv[i + 1], i + 2 < argc ? std::clamp(_wtoi(argv[i + 2]), 1, 600) : 8);
         if (a == L"--temps") return Temps(i + 1 < argc && argv[i + 1][0] != L'-' ? std::clamp(_wtoi(argv[i + 1]), 1, 3600) : 30);
         if (a == L"--update-check") {
             // Check, download, verify and unpack the latest release next to this exe; no install.

@@ -15,6 +15,8 @@ const GUID kDxgiProvider = { 0xCA11C036, 0x0102, 0x4A2D, { 0xA6, 0xAD, 0xF0, 0x3
 const GUID kD3d9Provider = { 0x783ACA0A, 0x790E, 0x4D7F, { 0x84, 0x51, 0xAA, 0x85, 0x05, 0x11, 0xC6, 0xB9 } };
 // Microsoft-Windows-DxgKrnl {802EC45A-1E99-4B83-9920-87C98277BA9D}
 const GUID kDxgkProvider = { 0x802EC45A, 0x1E99, 0x4B83, { 0x99, 0x20, 0x87, 0xC9, 0x82, 0x77, 0xBA, 0x9D } };
+// This app's heartbeat {6A3C1F52-8E4B-4D1A-9B7E-2F5D0C8A41E3}: proves the session still delivers.
+const GUID kHeartbeatProvider = { 0x6A3C1F52, 0x8E4B, 0x4D1A, { 0x9B, 0x7E, 0x2F, 0x5D, 0x0C, 0x8A, 0x41, 0xE3 } };
 
 constexpr USHORT kDxgiPresentStart = 42;
 constexpr USHORT kDxgiPresentMpoStart = 55;
@@ -142,9 +144,10 @@ bool FrameCapture::Start(std::string& error)
     tp.p.FlushTimer = 1;                        // seconds; FlushLoop flushes much more often
 
     ULONG rc = StartTraceW(&session_, sessionName_.c_str(), &tp.p);
+    accessDenied_ = rc == ERROR_ACCESS_DENIED;
     if (rc != ERROR_SUCCESS) {
-        error = (rc == ERROR_ACCESS_DENIED) ? "Frame capture needs administrator rights."
-                                            : "Could not start the frame capture session (error " + std::to_string(rc) + ").";
+        error = accessDenied_ ? "Frame capture needs administrator rights."
+                              : "Could not start the frame capture session (error " + std::to_string(rc) + ").";
         logx::Error("StartTrace failed: %lu", rc);
         session_ = 0;
         return false;
@@ -161,6 +164,10 @@ bool FrameCapture::Start(std::string& error)
     if (rc != ERROR_SUCCESS) logx::Warn("D3D9 provider: %lu", rc);
     rc = EnableProvider(session_, kDxgkProvider, kDxgkKeywordPresent, dxgkIds, 4);
     if (rc != ERROR_SUCCESS) logx::Warn("DxgKrnl provider: %lu", rc);
+    if (!heartbeat_ && EventRegister(&kHeartbeatProvider, nullptr, nullptr, &heartbeat_) != ERROR_SUCCESS) heartbeat_ = 0;
+    rc = EnableTraceEx2(session_, &kHeartbeatProvider, EVENT_CONTROL_CODE_ENABLE_PROVIDER, TRACE_LEVEL_INFORMATION,
+                        0, 0, 0, nullptr);
+    if (rc != ERROR_SUCCESS) logx::Warn("Heartbeat provider: %lu", rc);
 
     EVENT_TRACE_LOGFILEW lf = {};
     lf.LoggerName = const_cast<LPWSTR>(sessionName_.c_str());
@@ -177,16 +184,31 @@ bool FrameCapture::Start(std::string& error)
         InitProps(tp);
         ControlTraceW(session_, nullptr, &tp.p, EVENT_TRACE_CONTROL_STOP);
         session_ = 0;
+        if (heartbeat_) EventUnregister(heartbeat_);
+        heartbeat_ = 0;
         return false;
     }
 
+    const unsigned gen = ++generation_;
+    heartbeatsMissing_ = 0;
+    consumerEnded_ = false;
+    firstHeartbeat_ = true;
+    startQpc_ = (uint64_t)(Now() * qpcFreq_);
+    consumerExit_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     running_ = true;
-    consumer_ = std::thread([this] {
+    consumer_ = std::thread([this, gen, h = trace_, exit = consumerExit_] {
         SetThreadDescription(GetCurrentThread(), L"ETW consumer");
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-        TRACEHANDLE h = trace_;
-        const ULONG r = ProcessTrace(&h, 1, nullptr, nullptr);
-        if (r != ERROR_SUCCESS && r != ERROR_CANCELLED) logx::Warn("ProcessTrace returned %lu", r);
+        TRACEHANDLE handle = h;
+        const ULONG r = ProcessTrace(&handle, 1, nullptr, nullptr);
+        if (running_ && gen == generation_) {
+            // Nobody asked it to stop: the session was stopped from outside or broke.
+            consumerEnded_ = true;
+            logx::Warn("ProcessTrace returned %lu while capturing", r);
+        } else if (r != ERROR_SUCCESS && r != ERROR_CANCELLED) {
+            logx::Warn("ProcessTrace returned %lu", r);
+        }
+        if (exit) SetEvent(exit);
     });
     flusher_ = std::thread([this] { FlushLoop(); });
     logx::Info("Frame capture started");
@@ -207,12 +229,24 @@ void FrameCapture::Stop()
         CloseTrace(trace_);
         trace_ = INVALID_PROCESSTRACE_HANDLE;
     }
-    if (consumer_.joinable()) consumer_.join();
+    if (consumer_.joinable()) {
+        // A broken session must not freeze the app while the watchdog restarts it.
+        if (!consumerExit_ || WaitForSingleObject(consumerExit_, 1500) == WAIT_OBJECT_0) {
+            consumer_.join();
+            if (consumerExit_) CloseHandle(consumerExit_);
+        } else {
+            logx::Warn("ETW consumer did not stop; leaving it behind");
+            consumer_.detach();     // it still owns consumerExit_
+        }
+    }
+    consumerExit_ = nullptr;
 
     TraceProps tp;
     InitProps(tp);
     ControlTraceW(session_, nullptr, &tp.p, EVENT_TRACE_CONTROL_STOP);
     session_ = 0;
+    if (heartbeat_) EventUnregister(heartbeat_);
+    heartbeat_ = 0;
 
     std::lock_guard<std::mutex> lock(mutex_);
     procs_.clear();
@@ -225,16 +259,26 @@ void FrameCapture::FlushLoop()
     // Real-time sessions hand buffers to the consumer only when they fill up or when the
     // flush timer fires (1 s minimum). Flushing every 100 ms keeps the frame graph live.
     bool warned = false;
+    unsigned tick = 0;
     std::unique_lock<std::mutex> lock(flushMutex_);
     while (running_) {
         flushCv_.wait_for(lock, std::chrono::milliseconds(100));
         if (!running_) break;
+        // Counted whether or not the write succeeds: a session whose buffers never drain makes
+        // the write fail, and that is exactly the case to catch.
+        if (heartbeat_ && ++tick % 5 == 0) {
+            EventWriteString(heartbeat_, TRACE_LEVEL_INFORMATION, 0, L"");
+            heartbeatsMissing_.fetch_add(1, std::memory_order_relaxed);
+        }
         TraceProps tp;
         InitProps(tp);
         const ULONG rc = ControlTraceW(session_, nullptr, &tp.p, EVENT_TRACE_CONTROL_FLUSH);
-        if (rc != ERROR_SUCCESS && !warned) {
-            logx::Warn("ETW flush failed: %lu", rc);
-            warned = true;
+        if (rc != ERROR_SUCCESS) {
+            flushFailures_.fetch_add(1, std::memory_order_relaxed);
+            if (!warned) {
+                logx::Warn("ETW flush failed: %lu", rc);
+                warned = true;
+            }
         }
     }
 }
@@ -248,10 +292,18 @@ void WINAPI FrameCapture::OnEvent(PEVENT_RECORD rec)
 void FrameCapture::HandleEvent(PEVENT_RECORD rec)
 {
     if (!running_.load(std::memory_order_relaxed)) return;
-    events_.fetch_add(1, std::memory_order_relaxed);
-
     const EVENT_HEADER& h = rec->EventHeader;
     const DWORD pid = h.ProcessId;
+    if (IsEqualGUID(h.ProviderId, kHeartbeatProvider)) {
+        if (pid != selfPid_) return;        // another copy of the app (a test build)
+        heartbeatsMissing_.store(0, std::memory_order_relaxed);
+        if (firstHeartbeat_.exchange(false))
+            logx::Info("Frame capture: events flowing (%.0f ms after start)",
+                       1000.0 * ((double)h.TimeStamp.QuadPart - (double)startQpc_) / qpcFreq_);
+        return;
+    }
+    events_.fetch_add(1, std::memory_order_relaxed);
+
     if (pid == 0 || pid == 4 || pid == selfPid_) return;
     const USHORT id = h.EventDescriptor.Id;
     const uint64_t qpc = (uint64_t)h.TimeStamp.QuadPart;
@@ -378,6 +430,49 @@ FrameCapture::Result FrameCapture::Query(DWORD pid, double avgWindowSec, double 
     r.stats = ComputeFrameStats(p.ring, last, avgWindowSec, lowsWindowSec);
     if (graph && graphCount) CopyRecentFrameTimes(p.ring, graphCount, *graph);
     return r;
+}
+
+std::string FrameCapture::Describe(DWORD pid) const
+{
+    const double now = Now();
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = procs_.find(pid);
+    if (it == procs_.end()) return "no present events from this process";
+    const Proc& p = *it->second;
+    std::string out;
+    static const char* kNames[] = { "dxgi", "d3d9", "kernel-present", "kernel-flip" };
+    for (int i = 0; i < (int)PresentSource::Count; ++i) {
+        const Source& s = p.src[i];
+        char part[96];
+        if (!s.lastQpc) {
+            snprintf(part, sizeof(part), "%s none", kNames[i]);
+        } else {
+            uint32_t rate = 0;
+            for (const Chain& c : s.chains) rate = std::max(rate, std::max(c.lastRate, c.windowCount));
+            snprintf(part, sizeof(part), "%s %u/s (%.2f s ago)", kNames[i], rate, now - QpcToSec(s.lastQpc));
+        }
+        if (!out.empty()) out += ", ";
+        out += part;
+    }
+    char tail[128];
+    snprintf(tail, sizeof(tail), "; using %s, last counted frame %.2f s ago", PresentSourceName(p.active),
+             p.lastFrameQpc ? now - QpcToSec(p.lastFrameQpc) : -1.0);
+    return out + tail;
+}
+
+std::string FrameCapture::SessionStats() const
+{
+    TraceProps tp;
+    InitProps(tp);
+    const ULONG rc = ControlTraceW(0, sessionName_.c_str(), &tp.p, EVENT_TRACE_CONTROL_QUERY);
+    char out[200];
+    if (rc != ERROR_SUCCESS)
+        snprintf(out, sizeof(out), "session query failed: %lu", rc);
+    else
+        snprintf(out, sizeof(out), "%llu events, %lu buffers written, %lu events lost, %lu buffers lost, %lu of %lu buffers free",
+                 (unsigned long long)events_.load(), tp.p.BuffersWritten, tp.p.EventsLost, tp.p.RealTimeBuffersLost,
+                 tp.p.FreeBuffers, tp.p.NumberOfBuffers);
+    return out;
 }
 
 bool FrameCapture::IsPresenting(DWORD pid, double withinSec) const

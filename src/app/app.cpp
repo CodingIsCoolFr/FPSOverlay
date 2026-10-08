@@ -208,6 +208,10 @@ void App::Frame(bool settingsVblank)
         lastTargetUpdate_ = now;
         tracker_.Update(capture_, games::Choices{ cfg_.gameApps, cfg_.notGameApps });
     }
+    if (now - lastCaptureCheck_ >= 1000) {
+        lastCaptureCheck_ = now;
+        CheckCapture(now);
+    }
 
     const uint64_t seq = sensors_.Seq();
     if (seq != snapshotSeq_) {
@@ -225,6 +229,16 @@ void App::Frame(bool settingsVblank)
     }
     const FrameCapture::Result& fr = frames_;
     const bool fresh = fr.stats.valid && fr.secondsSinceLastFrame < 1.5;
+#ifdef FPSO_TEST_INSTANCE
+    static ULONGLONG lastDiag = 0;
+    if (now - lastDiag >= 1000) {   // test builds: what the HUD is measuring, once a second
+        lastDiag = now;
+        logx::Info("hud: target pid %lu '%s', %.1f fps, valid %d, last frame %.2f s ago, fresh %d, %llu events",
+                   (unsigned long)tracker_.Pid(), tracker_.DisplayName().c_str(), fr.stats.fps, (int)fr.stats.valid,
+                   fr.secondsSinceLastFrame > 1e8 ? -1.0 : fr.secondsSinceLastFrame, (int)fresh,
+                   (unsigned long long)capture_.EventsSeen());
+    }
+#endif
 
     HudFrameInfo info;
     info.captureRunning = capture_.Running();
@@ -308,6 +322,28 @@ bool App::GameShown(ULONGLONG now, const FrameCapture::Result& fr)
                    fgi.exe.empty() ? "?" : fgi.exe.c_str(), shown ? "shown" : "hidden");
     }
     return shown;
+}
+
+// Restarts a frame capture that has gone quiet (see CaptureWatchdog). Without this, the HUD shows
+// no FPS and "Hide when no game is running" hides it for good, until the app is restarted.
+void App::CheckCapture(ULONGLONG now)
+{
+    if (capture_.AccessDenied()) return;
+    CaptureWatchdog::Inputs w;
+    w.running = capture_.Running();
+    w.consumerEnded = capture_.ConsumerEnded();
+    w.heartbeatsMissing = capture_.HeartbeatsMissing();
+    w.events = capture_.EventsSeen();
+    HWND game = tracker_.Window();
+    w.gameInFront = tracker_.IsGame() && tracker_.Pid() && TargetTracker::ForegroundPid() == tracker_.Pid() &&
+                    !(game && IsIconic(game));
+    if (!captureWatchdog_.Update(w, now)) return;
+
+    logx::Warn("Frame capture %s (%s); restarting, attempt %d", captureWatchdog_.Reason(),
+               w.running ? capture_.SessionStats().c_str() : captureError_.c_str(), captureWatchdog_.Restarts());
+    capture_.Stop();
+    if (capture_.Start(captureError_)) captureError_.clear();
+    else logx::Warn("Frame capture unavailable: %s", captureError_.c_str());
 }
 
 SensorRequest App::BuildSensorRequest() const
