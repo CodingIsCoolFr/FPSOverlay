@@ -132,6 +132,9 @@ static void TestGameDetect()
                    "EpicGamesLauncher.exe", none) == Verdict::NotGame);
     CHECK(classify(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe",
                    "wallpaper64.exe", none) == Verdict::NotGame);
+    // The Snipping Tool's capture layer fills the screen and draws, but is not a game.
+    CHECK(classify(L"C:\\Windows\\SystemApps\\ScreenClipping\\ScreenClippingHost.exe", "ScreenClippingHost.exe", none) ==
+          Verdict::NotGame);
     // Unknown programs are left to the full-screen test.
     CHECK(classify(L"C:\\Tools\\CrashDetective.exe", "CrashDetective.exe", none) == Verdict::Unknown);
     CHECK(classify(L"", "", none) == Verdict::Unknown);

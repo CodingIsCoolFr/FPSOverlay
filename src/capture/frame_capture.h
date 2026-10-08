@@ -54,6 +54,8 @@ public:
 
     // True if pid presented a frame within the last `withinSec` seconds.
     bool IsPresenting(DWORD pid, double withinSec) const;
+    // Every process that presented a frame within the last `withinSec` seconds.
+    std::vector<DWORD> PresentingPids(double withinSec) const;
 
     void ResetHistory(DWORD pid);
 

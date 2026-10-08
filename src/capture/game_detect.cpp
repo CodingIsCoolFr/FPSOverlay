@@ -31,10 +31,12 @@ constexpr const char* kNotGames[] = {
     "msiafterburner.exe", "rtss.exe", "steelseriesggclient.exe", "steelseriesgg.exe", "icue.exe", "nzxt cam.exe",
     "wallpaper32.exe", "wallpaper64.exe", "lively.exe", "losslessscaling.exe", "vtube studio.exe", "blender.exe",
     "vrmonitor.exe", "vrserver.exe", "vrcompositor.exe", "vrdashboard.exe", "vrwebhelper.exe", "vrstartup.exe",
+    // screenshots: their capture layer covers the whole screen
+    "screenclippinghost.exe", "snippingtool.exe", "screensketch.exe", "sharex.exe", "greenshot.exe", "lightshot.exe",
     // Windows itself
     "explorer.exe", "dwm.exe", "searchhost.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe",
     "applicationframehost.exe", "textinputhost.exe", "lockapp.exe", "taskmgr.exe", "systemsettings.exe",
-    "fpsoverlay.exe",
+    "shellhost.exe", "pickerhost.exe", "magnify.exe", "fpsoverlay.exe",
 };
 
 // Folders games are installed into, lower-case, matched anywhere in the exe path.
@@ -111,6 +113,9 @@ const std::vector<std::wstring>& WindowsGameList()
 bool FillsMonitor(HWND hwnd)
 {
     if (!hwnd || IsIconic(hwnd)) return false;
+    // A maximized app keeps its title bar, and fills a monitor that has no taskbar on it.
+    // Full-screen games have none.
+    if ((GetWindowLongPtrW(hwnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION) return false;
     RECT r;
     if (!GetWindowRect(hwnd, &r)) return false;
     MONITORINFO mi = { sizeof(mi) };

@@ -31,7 +31,8 @@ Verdict Classify(std::wstring_view exePath, std::string_view exeName, const Choi
 // exe paths. Read from the registry at most every 30 seconds.
 const std::vector<std::wstring>& WindowsGameList();
 
-// True if the window covers its whole monitor: borderless or exclusive fullscreen.
+// True if the window covers its whole monitor without a title bar: borderless or exclusive
+// fullscreen.
 bool FillsMonitor(HWND hwnd);
 
 std::string Lower(std::string_view s);

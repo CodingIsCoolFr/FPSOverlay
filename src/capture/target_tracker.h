@@ -3,7 +3,9 @@
 // Rule: the foreground app if it is drawing frames. When focus moves to something that is
 // not drawing (Discord on a second monitor, the desktop, this app's settings), or to an app
 // that draws but is not a game (a browser, a tool), the last game stays selected as long as it
-// is still running and presenting.
+// is still running and presenting. When the target is not a drawing game, a game drawing
+// anywhere else is picked up even if it never had focus (a VR game, a game started before
+// this app, a game left running behind a chat window).
 #pragma once
 
 #include "capture/game_detect.h"
@@ -11,6 +13,7 @@
 #include <windows.h>
 
 #include <string>
+#include <unordered_map>
 
 class FrameCapture;
 enum class PresentSource : int;
@@ -27,6 +30,8 @@ public:
     // The target counts as a game (see games::Classify; an unknown app counts while it fills
     // its screen).
     bool IsGame() const { return isGame_; }
+    // The target's main window (the one it had in front, else its biggest), or null.
+    HWND Window() const { return window_; }
 
     void Refine(PresentSource source);  // fills ApiLabel once the present source is known
 
@@ -42,6 +47,7 @@ private:
         bool fullscreen = false;
     };
     bool Judge(const Candidate& c, const games::Choices& choices) const;
+    const Candidate& Lookup(DWORD pid);     // path and exe name, looked up once per process
     void SetTarget(DWORD pid);
 
     DWORD pid_ = 0;
@@ -52,5 +58,7 @@ private:
     int apiForSource_ = -2;
     bool isGame_ = false;
     bool fullscreen_ = false;   // the target's window filled its screen when last in front
+    HWND window_ = nullptr;
     Candidate fg_;              // the foreground app, looked up once per new foreground process
+    std::unordered_map<DWORD, Candidate> known_;    // processes seen drawing
 };

@@ -15,7 +15,7 @@
 
 #define APP_VERSION_MAJOR   2
 #define APP_VERSION_MINOR   0
-#define APP_VERSION_PATCH   7
+#define APP_VERSION_PATCH   8
 
 #define APP_STR2(x) #x
 #define APP_STR(x)  APP_STR2(x)

@@ -286,9 +286,11 @@ bool App::GameInFront()
     GetWindowThreadProcessId(fg, &owner);
     if (owner == GetCurrentProcessId()) return true;    // settings, menus, a Ctrl-drag of the HUD
     if (TargetTracker::ForegroundPid() == tracker_.Pid()) return true;
-    // Another app is in front. That only covers the game when it is on the HUD's monitor:
-    // Discord on a second screen leaves the game, and the HUD, alone.
-    return MonitorFromWindow(fg, MONITOR_DEFAULTTONULL) != hud_.Monitor(cfg_);
+    // Another app is in front. It only covers the game when it is on the game's monitor:
+    // Discord or a browser on a second screen leaves the game, and the HUD, alone.
+    HWND game = tracker_.Window();
+    const HMONITOR gameMon = game ? MonitorFromWindow(game, MONITOR_DEFAULTTONULL) : hud_.Monitor(cfg_);
+    return MonitorFromWindow(fg, MONITOR_DEFAULTTONULL) != gameMon;
 }
 
 SensorRequest App::BuildSensorRequest() const

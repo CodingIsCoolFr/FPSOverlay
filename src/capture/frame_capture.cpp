@@ -389,6 +389,16 @@ bool FrameCapture::IsPresenting(DWORD pid, double withinSec) const
     return now - QpcToSec(it->second->lastFrameQpc) <= withinSec;
 }
 
+std::vector<DWORD> FrameCapture::PresentingPids(double withinSec) const
+{
+    const double now = Now();
+    std::vector<DWORD> out;
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto& [pid, proc] : procs_)
+        if (proc->lastFrameQpc && now - QpcToSec(proc->lastFrameQpc) <= withinSec) out.push_back(pid);
+    return out;
+}
+
 void FrameCapture::ResetHistory(DWORD pid)
 {
     std::lock_guard<std::mutex> lock(mutex_);
