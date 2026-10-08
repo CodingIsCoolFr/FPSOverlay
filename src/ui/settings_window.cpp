@@ -413,6 +413,17 @@ void SettingsWindow::DrawSidebar(float width, float height)
         }
     }
     ImGui::PopStyleVar();
+
+    // Ko-fi, pinned to the bottom of the sidebar while there is room under the pages.
+    const float btnH = em * 2.1f;
+    const float btnY = ImGui::GetWindowHeight() - em * 0.9f - btnH;
+    if (ImGui::GetCursorPosY() + em < btnY) {
+        const float avail = ImGui::GetContentRegionAvail().x;
+        const char* label = T("Support on Ko-fi");
+        if (ImGui::CalcTextSize(label).x + em * 3.f > avail) label = T("Support");
+        ImGui::SetCursorPosY(btnY);
+        if (ui::SupportButton(label, ImVec2(avail, btnH), true)) actions_.openSupportPage = true;
+    }
     ImGui::EndChild();
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor();
@@ -979,6 +990,23 @@ void SettingsWindow::PageAbout(const UiStatus& status, const SensorSnapshot& s)
                           T("Check now"), false))
             actions_.checkUpdates = true;
         break;
+    }
+    ui::EndCard();
+
+    ui::BeginCard("##support", T("Support"));
+    {
+        const float pad = em * 0.6f;
+        ImGui::Indent(pad);
+        const float w = ImGui::GetContentRegionAvail().x - pad;
+        ui::Paragraph(T("FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back."),
+                      theme::kTextDim, w);
+        ImGui::Dummy(ImVec2(0, em * 0.5f));
+        const char* label = T("Support on Ko-fi");
+        if (ui::IsRtl())
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + w - (ImGui::CalcTextSize(label).x + em * 3.45f));
+        if (ui::SupportButton(label)) actions_.openSupportPage = true;
+        ImGui::Unindent(pad);
+        ImGui::Dummy(ImVec2(0, em * 0.3f));
     }
     ui::EndCard();
 

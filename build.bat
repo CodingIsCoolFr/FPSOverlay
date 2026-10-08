@@ -32,6 +32,7 @@ mkdir "%OUT%\locales"
 copy /y build\Release\FPSOverlay.exe "%OUT%\" >nul
 copy /y build\Release\FPSOverlay.Sensors.dll "%OUT%\" >nul
 copy /y build\Release\lhwm-wrapper.dll "%OUT%\" >nul
+copy /y libs\lhwm\PawnIO_setup.exe "%OUT%\" >nul
 copy /y LICENSE.txt "%OUT%\" >nul
 copy /y NOTICE.md "%OUT%\" >nul
 copy /y libs\pawnio\COPYING.txt "%OUT%\LICENSE-PawnIO-modules.txt" >nul

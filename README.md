@@ -321,6 +321,17 @@ lower on a busy hybrid Intel CPU. To match that, pick *Average of all cores* und
 </details>
 
 <details>
+<summary><b>Windows Security says it is a threat.</b></summary>
+
+That is a false alarm. The app is not code-signed yet, and it runs as administrator, reads
+hardware sensors and updates itself, so Microsoft's cloud scanner sometimes guesses wrong about a
+new version. Since 2.0.6 the app no longer does the things that set it off (it used to copy the
+PawnIO installer to the Temp folder and run `schtasks.exe` and `tar.exe` in the background).
+The full source is in this repository. If it happens to you, please
+[open an issue](https://github.com/CodingIsCoolFr/FPSOverlay/issues) with the detection name.
+</details>
+
+<details>
 <summary><b>CPU temperature is missing.</b></summary>
 
 Install PawnIO from *Settings → Sensors*. Modern CPUs only expose their temperature through a driver.
@@ -347,6 +358,7 @@ top of this page. It is never required, and nothing in the app is held back if y
 | [Dear ImGui](https://github.com/ocornut/imgui) | MIT |
 | [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) 0.9.6, bundled in `lhwm-wrapper.dll` | MPL 2.0 |
 | [RTLScript](https://github.com/oscar7070/RTLScript), a fork of FarsiType | MIT |
+| [miniz](https://github.com/richgel999/miniz) 3.1.2, unpacks updates | MIT |
 | [PawnIO](https://pawnio.eu/) driver installer | see its project page |
 | [PawnIO.Modules](https://github.com/namazso/PawnIO.Modules/releases/tag/0.1.6) 0.1.6 (`IntelMSR.bin`, `AMDFamily17.bin`, embedded in the exe) | LGPL 2.1 or later |
 

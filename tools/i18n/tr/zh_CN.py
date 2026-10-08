@@ -204,4 +204,7 @@ T = {
 "Updated to version %s": "已更新到版本 %s",
 "The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "CPU 自身的读数，HWiNFO、Corsair iCUE 和 NZXT CAM 默认显示这个值。",
 "Lower than Package. NZXT CAM's Average setting shows this one.": "比 Package 低。NZXT CAM 的 Average 设置显示的就是这个值。",
+"Support on Ko-fi": "在 Ko-fi 上支持",
+"Support": "支持",
+"FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay 免费，由一个人开发。如果它对你有帮助，在 Ko-fi 上请杯咖啡就能让它继续下去。支持完全自愿，所有功能都不受限制。",
 }

@@ -17,11 +17,11 @@ int  Compare(const Version& a, const Version& b);
 
 bool     IsInstalled();
 Version  InstalledVersion();
-Version  BundledVersion();              // the installer embedded in our exe
+Version  BundledVersion();              // PawnIO_setup.exe shipped next to our exe
 
 enum class InstallResult { Ok, Failed, Missing };
-// Runs the embedded installer silently and waits for it. Blocks for several seconds:
-// call it from a worker thread.
+// Runs PawnIO_setup.exe from the app folder silently and waits for it. Blocks for several
+// seconds: call it from a worker thread.
 InstallResult RunInstaller(std::string& detail);
 
 } // namespace pawnio

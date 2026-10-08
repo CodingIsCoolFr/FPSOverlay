@@ -11,6 +11,11 @@
 #include <shellapi.h>
 #include <shldisp.h>
 #include <shlobj.h>
+#include <taskschd.h>
+
+#include <cstdio>
+
+#pragma comment(lib, "taskschd.lib")
 
 namespace shell {
 namespace {
@@ -94,26 +99,48 @@ void RevealInExplorer(const std::wstring& path)
 namespace autostart {
 namespace {
 
-DWORD RunHidden(const std::wstring& cmdLine)
+// installer/FPSOverlay.iss removes the task by this name on uninstall. A test build gets its
+// own, so trying it out never replaces the real one.
+#ifdef FPSO_TEST_INSTANCE
+const wchar_t kTaskName[] = APP_NAME_W L" (test)";
+#else
+const wchar_t kTaskName[] = APP_NAME_W;
+#endif
+
+// COM for the calling thread, which is usually a plain worker thread. On a thread that already
+// has COM (the UI thread), CoInitializeEx fails harmlessly and COM stays as it was.
+struct ComScope {
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    ~ComScope() { if (SUCCEEDED(hr)) CoUninitialize(); }
+};
+
+// Task Scheduler's root folder, through its own API. The app used to run schtasks.exe hidden
+// with an XML file in %TEMP%, which is also how malware installs itself, and antivirus engines
+// treated it that way.
+ITaskFolder* RootFolder(HRESULT& hr)
 {
-    std::wstring cmd = cmdLine;
-    STARTUPINFOW si = { sizeof(si) };
-    PROCESS_INFORMATION pi = {};
-    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
-        return (DWORD)-1;
-    WaitForSingleObject(pi.hProcess, 15000);
-    DWORD code = (DWORD)-1;
-    GetExitCodeProcess(pi.hProcess, &code);
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-    return code;
+    ITaskService* svc = nullptr;
+    ITaskFolder* root = nullptr;
+    hr = CoCreateInstance(CLSID_TaskScheduler, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&svc));
+    if (SUCCEEDED(hr)) {
+        VARIANT empty;
+        VariantInit(&empty);
+        hr = svc->Connect(empty, empty, empty, empty);
+        if (SUCCEEDED(hr)) {
+            BSTR path = SysAllocString(L"\\");
+            hr = svc->GetFolder(path, &root);
+            SysFreeString(path);
+        }
+        svc->Release();
+    }
+    return SUCCEEDED(hr) ? root : nullptr;
 }
 
-std::wstring Schtasks()
+std::string HrText(HRESULT hr)
 {
-    wchar_t sys[MAX_PATH] = {};
-    GetSystemDirectoryW(sys, MAX_PATH);
-    return std::wstring(L"\"") + sys + L"\\schtasks.exe\"";
+    char buf[16];
+    snprintf(buf, sizeof(buf), "0x%08lX", (unsigned long)hr);
+    return buf;
 }
 
 std::wstring XmlEscape(const std::wstring& s)
@@ -143,7 +170,17 @@ std::wstring CurrentUser()
 
 bool IsEnabled()
 {
-    return RunHidden(Schtasks() + L" /Query /TN \"" APP_NAME_W L"\"") == 0;
+    ComScope com;
+    HRESULT hr = S_OK;
+    ITaskFolder* root = RootFolder(hr);
+    if (!root) return false;
+    BSTR name = SysAllocString(kTaskName);
+    IRegisteredTask* task = nullptr;
+    const bool found = SUCCEEDED(root->GetTask(name, &task));
+    SysFreeString(name);
+    if (task) task->Release();
+    root->Release();
+    return found;
 }
 
 bool Enable(const std::wstring& exePath, std::string& error)
@@ -179,25 +216,23 @@ bool Enable(const std::wstring& exePath, std::string& error)
         L"<WorkingDirectory>" + XmlEscape(dir) + L"</WorkingDirectory></Exec></Actions>\r\n"
         L"</Task>\r\n";
 
-    wchar_t tmpDir[MAX_PATH + 1] = {};
-    GetTempPathW(MAX_PATH, tmpDir);
-    const std::wstring xmlPath = std::wstring(tmpDir) + L"FPSOverlay-task.xml";
-    HANDLE f = CreateFileW(xmlPath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr);
-    if (f == INVALID_HANDLE_VALUE) {
-        error = "Could not write the task definition.";
-        return false;
+    ComScope com;
+    HRESULT hr = S_OK;
+    if (ITaskFolder* root = RootFolder(hr)) {
+        BSTR name = SysAllocString(kTaskName);
+        BSTR def = SysAllocString(xml.c_str());
+        VARIANT empty;
+        VariantInit(&empty);
+        IRegisteredTask* task = nullptr;
+        hr = root->RegisterTask(name, def, TASK_CREATE_OR_UPDATE, empty, empty, TASK_LOGON_INTERACTIVE_TOKEN, empty, &task);
+        SysFreeString(def);
+        SysFreeString(name);
+        if (task) task->Release();
+        root->Release();
     }
-    DWORD written = 0;
-    const wchar_t bom = 0xFEFF;
-    WriteFile(f, &bom, sizeof(bom), &written, nullptr);
-    WriteFile(f, xml.data(), (DWORD)(xml.size() * sizeof(wchar_t)), &written, nullptr);
-    CloseHandle(f);
-
-    const DWORD code = RunHidden(Schtasks() + L" /Create /F /TN \"" APP_NAME_W L"\" /XML \"" + xmlPath + L"\"");
-    DeleteFileW(xmlPath.c_str());
-    if (code != 0) {
-        error = "Task Scheduler refused the task (code " + std::to_string((long)code) + ").";
-        logx::Warn("schtasks /Create failed: %ld", (long)code);
+    if (FAILED(hr)) {
+        error = "Task Scheduler refused the task (code " + HrText(hr) + ").";
+        logx::Warn("RegisterTask failed: %s", HrText(hr).c_str());
         return false;
     }
     return true;
@@ -205,9 +240,16 @@ bool Enable(const std::wstring& exePath, std::string& error)
 
 bool Disable(std::string& error)
 {
-    const DWORD code = RunHidden(Schtasks() + L" /Delete /F /TN \"" APP_NAME_W L"\"");
-    if (code != 0 && IsEnabled()) {
-        error = "Task Scheduler could not remove the task (code " + std::to_string((long)code) + ").";
+    ComScope com;
+    HRESULT hr = S_OK;
+    if (ITaskFolder* root = RootFolder(hr)) {
+        BSTR name = SysAllocString(kTaskName);
+        hr = root->DeleteTask(name, 0);
+        SysFreeString(name);
+        root->Release();
+    }
+    if (FAILED(hr) && hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND) && IsEnabled()) {
+        error = "Task Scheduler could not remove the task (code " + HrText(hr) + ").";
         return false;
     }
     return true;

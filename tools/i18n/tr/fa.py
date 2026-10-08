@@ -204,4 +204,7 @@ T = {
 "Updated to version %s": "به نسخه %s به‌روزرسانی شد",
 "The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "خوانش خود پردازنده؛ HWiNFO، Corsair iCUE و NZXT CAM به‌طور پیش‌فرض همین را نشان می‌دهند.",
 "Lower than Package. NZXT CAM's Average setting shows this one.": "پایین‌تر از Package. تنظیم Average در NZXT CAM همین را نشان می‌دهد.",
+"Support on Ko-fi": "حمایت در Ko-fi",
+"Support": "حمایت",
+"FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay رایگان است و یک نفر آن را می‌سازد. اگر برایتان مفید است، یک قهوه در Ko-fi به ادامهٔ آن کمک می‌کند. هیچ‌وقت اجباری نیست و هیچ قابلیتی قفل نمی‌شود.",
 }

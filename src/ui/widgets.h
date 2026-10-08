@@ -46,6 +46,8 @@ bool Segmented(const char* id, int* v, const char* const* items, int count, floa
 bool ToggleSwitch(const char* id, bool* v, bool disabled = false);
 bool PrimaryButton(const char* label, const ImVec2& size = ImVec2(0, 0), bool disabled = false);
 bool SecondaryButton(const char* label, const ImVec2& size = ImVec2(0, 0), bool disabled = false);
+// The Ko-fi button: a heart and a label in Ko-fi's red. `soft` is the quiet, tinted version.
+bool SupportButton(const char* label, const ImVec2& size = ImVec2(0, 0), bool soft = false);
 bool SidebarItem(const char* icon, const char* label, bool selected);
 bool KeyCap(const char* id, const char* text, bool listening, float width);
 void Badge(const char* text, const ImVec4& color);

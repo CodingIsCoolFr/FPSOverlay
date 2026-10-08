@@ -51,7 +51,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)libs\RTLScript;$(ProjectDir)libs\imgui;$(ProjectDir)libs\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)libs\RTLScript;$(ProjectDir)libs\imgui;$(ProjectDir)libs\imgui\backends;$(ProjectDir)libs\miniz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_WINDOWS;RTL_SCRIPT_ENABLE_FARSI;RTL_SCRIPT_ENABLE_HEBREW;RTL_SCRIPT_RAII_ENABLE_FARSI;RTL_SCRIPT_RAII_ENABLE_HEBREW;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -128,6 +128,11 @@
     <ClCompile Include="libs\imgui\imgui_widgets.cpp"><WarningLevel>Level3</WarningLevel></ClCompile>
     <ClCompile Include="libs\imgui\backends\imgui_impl_dx11.cpp"><WarningLevel>Level3</WarningLevel></ClCompile>
     <ClCompile Include="libs\imgui\backends\imgui_impl_win32.cpp"><WarningLevel>Level3</WarningLevel></ClCompile>
+    <!-- Unpacks downloaded updates; updater.cpp includes miniz.h with the same switches. -->
+    <ClCompile Include="libs\miniz\miniz.c">
+      <WarningLevel>Level1</WarningLevel>
+      <PreprocessorDefinitions>MINIZ_NO_STDIO;MINIZ_NO_TIME;MINIZ_NO_ARCHIVE_WRITING_APIS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemGroup>
 
   <ItemGroup>
@@ -176,6 +181,7 @@
   <!-- Everything the exe needs at runtime ends up next to it. -->
   <ItemGroup>
     <RuntimeFile Include="$(ProjectDir)libs\lhwm\lhwm-wrapper.dll" />
+    <RuntimeFile Include="$(ProjectDir)libs\lhwm\PawnIO_setup.exe" />
     <RuntimeFile Include="$(ProjectDir)LICENSE.txt" />
     <RuntimeFile Include="$(ProjectDir)NOTICE.md" Condition="Exists('$(ProjectDir)NOTICE.md')" />
     <LocaleFile Include="$(ProjectDir)locales\*.json" />

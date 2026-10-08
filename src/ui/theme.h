@@ -20,6 +20,7 @@ inline const ImVec4 kTextFaint   = ImVec4(0.392f, 0.420f, 0.486f, 1.f);   // #64
 inline const ImVec4 kGood        = ImVec4(0.239f, 0.863f, 0.518f, 1.f);   // #3DDC84
 inline const ImVec4 kWarn        = ImVec4(1.000f, 0.765f, 0.302f, 1.f);   // #FFC34D
 inline const ImVec4 kBad         = ImVec4(1.000f, 0.361f, 0.361f, 1.f);   // #FF5C5C
+inline const ImVec4 kKofi        = ImVec4(1.000f, 0.369f, 0.357f, 1.f);   // #FF5E5B  Ko-fi's own red
 
 struct Accent { const char* name; ImVec4 color; };
 inline constexpr int kAccentCount = 8;
@@ -66,6 +67,7 @@ inline constexpr const char* Refresh   = "\xEE\x9C\xAC";   // U+E72C
 inline constexpr const char* Pulse     = "\xEE\xA7\x99";   // U+E9D9
 inline constexpr const char* Close     = "\xEE\xA2\xBB";   // U+E8BB
 inline constexpr const char* Download  = "\xEE\xA2\x96";   // U+E896
+inline constexpr const char* Heart     = "\xEE\xAD\x92";   // U+EB52 HeartFill
 }
 
 } // namespace theme

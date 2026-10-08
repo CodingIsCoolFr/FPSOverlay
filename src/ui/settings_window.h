@@ -37,6 +37,7 @@ struct UiActions {
     bool openConfigFolder = false;
     bool checkUpdates = false;
     bool openUpdatePage = false;
+    bool openSupportPage = false;   // Ko-fi
     bool installUpdate = false;     // download if needed, then install now
     int  setAutostart = -1;         // -1 none, 0 off, 1 on
     bool languageChanged = false;

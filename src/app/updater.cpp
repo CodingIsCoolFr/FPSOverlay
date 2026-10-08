@@ -17,6 +17,12 @@
 #include <utility>
 #include <vector>
 
+// Read-only, in-memory use: the same switches miniz.c is built with (FPSOverlay.vcxproj).
+#define MINIZ_NO_STDIO
+#define MINIZ_NO_TIME
+#define MINIZ_NO_ARCHIVE_WRITING_APIS
+#include <miniz.h>
+
 #pragma comment(lib, "bcrypt.lib")
 
 namespace fs = std::filesystem;
@@ -180,18 +186,73 @@ std::string FileVersionOf(const std::wstring& path)
     return v;
 }
 
-bool RunHidden(std::wstring cmd, const std::wstring& dir, DWORD timeoutMs, DWORD& exitCode)
+bool WriteWholeFile(const fs::path& path, const void* data, size_t size)
 {
-    STARTUPINFOW si = { sizeof(si) };
-    PROCESS_INFORMATION pi = {};
-    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, dir.c_str(), &si, &pi))
+    HANDLE f = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return false;
+    DWORD written = 0;
+    const bool ok = WriteFile(f, data, (DWORD)size, &written, nullptr) && written == size;
+    CloseHandle(f);
+    return ok;
+}
+
+// Unpacks the release zip into dest, inside this process. Entries that would land outside dest
+// ("..", absolute paths) fail the whole unpack.
+bool Unzip(const std::wstring& zip, const fs::path& dest, std::string& err)
+{
+    std::vector<unsigned char> data;
+    {
+        HANDLE f = CreateFileW(zip.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        LARGE_INTEGER size = {};
+        if (f == INVALID_HANDLE_VALUE || !GetFileSizeEx(f, &size) || size.QuadPart <= 0 || (unsigned long long)size.QuadPart > kMaxDownload) {
+            if (f != INVALID_HANDLE_VALUE) CloseHandle(f);
+            err = "The download could not be read.";
+            return false;
+        }
+        data.resize((size_t)size.QuadPart);
+        DWORD got = 0;
+        const bool ok = ReadFile(f, data.data(), (DWORD)data.size(), &got, nullptr) && got == data.size();
+        CloseHandle(f);
+        if (!ok) {
+            err = "The download could not be read.";
+            return false;
+        }
+    }
+
+    mz_zip_archive za = {};
+    if (!mz_zip_reader_init_mem(&za, data.data(), data.size(), 0)) {
+        err = "The download is not a valid zip file.";
         return false;
-    const bool done = WaitForSingleObject(pi.hProcess, timeoutMs) == WAIT_OBJECT_0;
-    if (!done) TerminateProcess(pi.hProcess, 1);
-    GetExitCodeProcess(pi.hProcess, &exitCode);
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-    return done;
+    }
+    bool ok = true;
+    const mz_uint count = mz_zip_reader_get_num_files(&za);
+    for (mz_uint i = 0; i < count && ok; ++i) {
+        mz_zip_archive_file_stat st;
+        if (!mz_zip_reader_file_stat(&za, i, &st)) {
+            ok = false;
+            break;
+        }
+        const fs::path rel = fs::path(win::ToWide(st.m_filename)).lexically_normal();
+        if (rel.empty() || rel.has_root_name() || rel.has_root_directory() || *rel.begin() == L"..") {
+            logx::Warn("Update: unsafe path in the zip: %s", st.m_filename);
+            ok = false;
+            break;
+        }
+        const fs::path target = dest / rel;
+        std::error_code ec;
+        if (st.m_is_directory || !rel.has_filename()) {
+            fs::create_directories(target, ec);
+            continue;
+        }
+        fs::create_directories(target.parent_path(), ec);
+        size_t size = 0;
+        void* bytes = mz_zip_reader_extract_to_heap(&za, i, &size, 0);
+        ok = bytes && WriteWholeFile(target, bytes, size);
+        mz_free(bytes);
+    }
+    mz_zip_reader_end(&za);
+    if (!ok) err = "The update could not be unpacked.";
+    return ok;
 }
 
 // Starts exe with args in dir. An elevated parent starts an elevated child without a prompt; if
@@ -301,13 +362,8 @@ void Worker(bool download)
     }
     MoveFileExW(part.c_str(), zip.c_str(), MOVEFILE_REPLACE_EXISTING);
 
-    // Windows 10 1803 and later ship bsdtar, which reads zip files.
-    wchar_t sys[MAX_PATH] = {};
-    GetSystemDirectoryW(sys, MAX_PATH);
-    DWORD code = 1;
-    const std::wstring tar = L"\"" + std::wstring(sys) + L"\\tar.exe\" -xf \"" + zip + L"\" -C \"" + dir.substr(0, dir.size() - 1) + L"\"";
-    if (!RunHidden(tar, dir, 60000, code) || code != 0) {
-        SetStatus(State::Failed, version, "The update could not be unpacked.");
+    if (!Unzip(zip, dir, err)) {
+        SetStatus(State::Failed, version, err);
         return;
     }
     const std::wstring exe = dir + L"FPSOverlay\\FPSOverlay.exe";

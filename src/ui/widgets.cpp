@@ -588,6 +588,47 @@ bool SecondaryButton(const char* label, const ImVec2& size, bool disabled)
     return StyledButton(label, size, disabled, theme::kFrame, theme::kFrameHover, theme::kFrameActive, theme::kText);
 }
 
+bool SupportButton(const char* label, const ImVec2& sizeArg, bool soft)
+{
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float em = ImGui::GetFontSize();
+    const ImVec2 ts = TextSize(ImGui::GetFont(), em, label);
+    const float iconW = g_icons ? em * 1.45f : 0.f;
+    ImVec2 size = sizeArg;
+    if (size.x <= 0) size.x = ts.x + iconW + em * 2.f;
+    if (size.y <= 0) size.y = em * 2.0f;
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::PushID(label);
+    const bool pressed = ImGui::InvisibleButton("##support", size);
+    const bool hov = ImGui::IsItemHovered(), act = ImGui::IsItemActive();
+    const float hovT = Anim(ImGui::GetID("##hov"), hov ? 1.f : 0.f, 20.f);
+    ImGui::PopID();
+
+    const ImVec4 white(1, 1, 1, 1);
+    ImVec4 bg, text, heart;
+    if (soft) {
+        bg = theme::kKofi;
+        bg.w = act ? 0.30f : 0.11f + 0.11f * hovT;
+        text = theme::Mix(theme::kTextDim, theme::kText, hovT);
+        heart = theme::kKofi;
+    } else {
+        bg = act ? theme::Mix(theme::kKofi, ImVec4(0, 0, 0, 1), 0.12f) : theme::Mix(theme::kKofi, white, 0.12f * hovT);
+        text = heart = white;
+    }
+    dl->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), theme::U32(bg), em * 0.45f);
+
+    // Heart then label, centred as one block; mirrored for right-to-left languages.
+    const float x0 = p.x + std::max(em * 0.6f, (size.x - iconW - ts.x) * 0.5f);
+    const float labelX = g_rtl ? x0 : x0 + iconW;
+    if (iconW > 0) {
+        const float hx = g_rtl ? x0 + ts.x + em * 0.45f : x0;
+        DrawText(dl, ImGui::GetFont(), em, ImVec2(hx, p.y + (size.y - em) * 0.5f - em * 0.08f), heart, theme::icon::Heart);
+    }
+    DrawText(dl, ImGui::GetFont(), em, ImVec2(labelX, p.y + (size.y - ts.y) * 0.5f), text, label);
+    if (hov) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    return pressed;
+}
+
 bool SidebarItem(const char* icon, const char* label, bool selected)
 {
     ImDrawList* dl = ImGui::GetWindowDrawList();

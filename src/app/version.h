@@ -15,7 +15,7 @@
 
 #define APP_VERSION_MAJOR   2
 #define APP_VERSION_MINOR   0
-#define APP_VERSION_PATCH   5
+#define APP_VERSION_PATCH   6
 
 #define APP_STR2(x) #x
 #define APP_STR(x)  APP_STR2(x)
@@ -24,3 +24,6 @@
 // GitHub "owner/repo" whose latest release is checked for updates.
 // Empty string = the update check is off and no network request is ever made.
 #define APP_UPDATE_REPO     "CodingIsCoolFr/FPSOverlay"
+
+// Where the Support on Ko-fi buttons go.
+#define APP_SUPPORT_URL_W   L"https://ko-fi.com/codingiscool"

@@ -4,8 +4,7 @@
 // Application icon (resource 1 is also the tray icon)
 1 ICON "../icon.ico"
 
-// PawnIO driver installer, run on request from Settings > Sensors
-101 RCDATA "../libs/lhwm/PawnIO_setup.exe"
+// The PawnIO driver installer is not embedded: it ships as PawnIO_setup.exe next to the exe.
 
 // Signed PawnIO modules for reading the CPU package temperature directly (LGPL-2.1-or-later,
 // PawnIO.Modules 0.1.6; see libs/pawnio/README.txt)

@@ -302,6 +302,7 @@ void App::HandleUiActions(const UiActions& a)
     if (a.openConfigFolder) shell::RevealInExplorer(configPath_);
     if (a.checkUpdates) updater::CheckAsync(cfg_.autoUpdate);
     if (a.openUpdatePage) shell::OpenUnelevated(updater::ReleasePageUrl());
+    if (a.openSupportPage) shell::OpenUnelevated(APP_SUPPORT_URL_W);
     if (a.installUpdate) {
         installRequested_ = true;
         if (updater::GetStatus().state != updater::State::Ready) updater::CheckAsync(true);

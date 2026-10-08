@@ -204,4 +204,7 @@ T = {
 "Updated to version %s": "Auf Version %s aktualisiert",
 "The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "Der eigene Messwert der CPU, den HWiNFO, Corsair iCUE und NZXT CAM standardmäßig zeigen.",
 "Lower than Package. NZXT CAM's Average setting shows this one.": "Niedriger als Package. Die Einstellung Average in NZXT CAM zeigt diesen Wert.",
+"Support on Ko-fi": "Auf Ko-fi unterstützen",
+"Support": "Unterstützen",
+"FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay ist kostenlos und wird von einer einzigen Person entwickelt. Wenn es dir hilft, hält ein Kaffee auf Ko-fi es am Laufen. Das ist nie Pflicht, und keine Funktion wird zurückgehalten.",
 }

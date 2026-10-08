@@ -8,8 +8,6 @@
 #include <cstdio>
 #include <vector>
 
-#define IDR_PAWNIO_SETUP 101
-
 namespace pawnio {
 namespace {
 
@@ -70,32 +68,9 @@ std::wstring FirstPath(const std::wstring& raw)
     return cut == std::wstring::npos ? s : s.substr(0, cut);
 }
 
-bool ExtractInstaller(const std::wstring& dest)
-{
-    HMODULE self = GetModuleHandleW(nullptr);
-    HRSRC res = FindResourceW(self, MAKEINTRESOURCEW(IDR_PAWNIO_SETUP), RT_RCDATA);
-    if (!res) return false;
-    HGLOBAL mem = LoadResource(self, res);
-    const DWORD size = SizeofResource(self, res);
-    const void* data = mem ? LockResource(mem) : nullptr;
-    if (!data || !size) return false;
-    HANDLE f = CreateFileW(dest.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (f == INVALID_HANDLE_VALUE) return false;
-    DWORD written = 0;
-    const bool ok = WriteFile(f, data, size, &written, nullptr) && written == size;
-    CloseHandle(f);
-    if (!ok) DeleteFileW(dest.c_str());
-    return ok;
-}
-
-std::wstring TempInstallerPath()
-{
-    wchar_t dir[MAX_PATH + 1] = {};
-    GetTempPathW(MAX_PATH, dir);
-    wchar_t name[64];
-    swprintf_s(name, L"FPSOverlay_PawnIO_%llu.exe", (unsigned long long)GetTickCount64());
-    return std::wstring(dir) + name;
-}
+// The official, signed installer ships as its own file next to the app. It used to be embedded in
+// the exe and copied to %TEMP% to run, which is what droppers do, and antivirus engines noticed.
+std::wstring InstallerPath() { return win::ExeDir() + L"PawnIO_setup.exe"; }
 
 } // namespace
 
@@ -145,38 +120,34 @@ Version BundledVersion()
     static bool done = false;
     if (done) return cached;
     done = true;
-    const std::wstring tmp = TempInstallerPath();
-    if (ExtractInstaller(tmp)) {
-        cached = FileVersion(tmp);
-        DeleteFileW(tmp.c_str());
-    }
+    cached = FileVersion(InstallerPath());
     return cached;
 }
 
 InstallResult RunInstaller(std::string& detail)
 {
-    const std::wstring tmp = TempInstallerPath();
-    if (!ExtractInstaller(tmp)) {
+    const std::wstring setup = InstallerPath();
+    if (GetFileAttributesW(setup.c_str()) == INVALID_FILE_ATTRIBUTES) {
         detail = "The PawnIO installer is not bundled in this build.";
         return InstallResult::Missing;
     }
 
+    const std::wstring dir = win::ExeDir();
     SHELLEXECUTEINFOW sei = { sizeof(sei) };
     sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
     sei.lpVerb = win::IsElevated() ? L"open" : L"runas";
-    sei.lpFile = tmp.c_str();
+    sei.lpFile = setup.c_str();
     sei.lpParameters = L"-install";
+    sei.lpDirectory = dir.c_str();
     sei.nShow = SW_HIDE;
     if (!ShellExecuteExW(&sei) || !sei.hProcess) {
         detail = "The installer could not be started (error " + std::to_string(GetLastError()) + ").";
-        DeleteFileW(tmp.c_str());
         return InstallResult::Failed;
     }
     WaitForSingleObject(sei.hProcess, 5 * 60 * 1000);
     DWORD code = (DWORD)-1;
     GetExitCodeProcess(sei.hProcess, &code);
     CloseHandle(sei.hProcess);
-    DeleteFileW(tmp.c_str());
 
     logx::Info("PawnIO installer exit code %lu", code);
     if (code != 0) {
