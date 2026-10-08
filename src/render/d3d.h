@@ -2,7 +2,7 @@
 #pragma once
 
 #include <d3d11.h>
-#include <dxgi1_2.h>
+#include <dxgi1_3.h>
 
 #include <string>
 
@@ -40,12 +40,18 @@ public:
     UINT Height() const { return height_; }
     bool Valid() const { return swap_ != nullptr; }
 
+    // Flip mode: signalled when the display can take the next frame (frame latency 1). Waiting
+    // on it and presenting with vsync renders exactly once per refresh, with the least delay.
+    HANDLE FrameWaitable() const { return waitable_; }
+
 private:
     void CreateView();
 
     const D3D*              d3d_ = nullptr;
     IDXGISwapChain1*        swap_ = nullptr;
     ID3D11RenderTargetView* rtv_ = nullptr;
+    HANDLE                  waitable_ = nullptr;
+    UINT                    flags_ = 0;     // swap chain flags, repeated on ResizeBuffers
     UINT width_ = 0, height_ = 0;
     Mode mode_ = Mode::Flip;
     bool occluded_ = false;

@@ -19,7 +19,8 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandlerEx(HWND, UINT, WPARA
 
 namespace {
 
-constexpr wchar_t kClass[] = L"FPSOverlay.Settings";
+constexpr wchar_t kClass[] = APP_ID_W L".Settings";
+constexpr UINT_PTR kModalTimer = 1;
 constexpr float kBaseFontPx = 16.f;
 constexpr int kDefaultW = 940, kDefaultH = 680, kMinW = 760, kMinH = 540;
 
@@ -187,17 +188,32 @@ UiActions SettingsWindow::TakeActions()
 
 // ── Frame ───────────────────────────────────────────────────────────────────
 
-bool SettingsWindow::Tick(const UiStatus& status, const SensorSnapshot& sensors)
+bool SettingsWindow::WantsFastFrames() const
+{
+    if (!hwnd_ || minimized_ || GetForegroundWindow() != hwnd_) return false;
+    if (scrollAnimating_) return true;
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    return (now.QuadPart - lastInputQpc_) / qpcFreq_ < 1.0;
+}
+
+bool SettingsWindow::Tick(const UiStatus& status, const SensorSnapshot& sensors, bool vblank)
 {
     if (!hwnd_ || !ctx_) return false;
     if (minimized_ || target_.Occluded()) return false;
 
     LARGE_INTEGER now;
     QueryPerformanceCounter(&now);
-    const bool active = GetForegroundWindow() == hwnd_;
-    const double interval = active ? 1.0 / 60.0 : 1.0 / 15.0;
+    const bool fast = WantsFastFrames() && target_.FrameWaitable();
     const double since = (now.QuadPart - lastFrameQpc_) / qpcFreq_;
-    if (lastFrameQpc_ && since < interval - 0.001) return false;
+    if (fast) {
+        // Paced by the display: render when the frame waitable fires. The 50 ms fallback keeps
+        // the window alive should the signal ever not come.
+        if (!vblank && lastFrameQpc_ && since < 0.05) return false;
+    } else {
+        const double interval = GetForegroundWindow() == hwnd_ ? 1.0 / 30.0 : 1.0 / 15.0;
+        if (lastFrameQpc_ && since < interval - 0.001) return false;
+    }
     lastFrameQpc_ = now.QuadPart;
 
     ImGuiContext* prev = ImGui::GetCurrentContext();
@@ -213,15 +229,71 @@ bool SettingsWindow::Tick(const UiStatus& status, const SensorSnapshot& sensors)
     const float clear[4] = { theme::kBg.x, theme::kBg.y, theme::kBg.z, 1.f };
     target_.Bind(clear);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    target_.Present(false);
+#ifdef FPSO_TEST_INSTANCE
+    LARGE_INTEGER beforePresent;
+    QueryPerformanceCounter(&beforePresent);
+#endif
+    target_.Present(fast);      // vsync while paced by the waitable
     ImGui::SetCurrentContext(prev);
 
+#ifdef FPSO_TEST_INSTANCE
+    {   // Test builds: frames per second and CPU time per frame, once a second.
+        static int frames = 0, fastFrames = 0;
+        static double workMs = 0, presentMs = 0, windowStart = 0;
+        LARGE_INTEGER end;
+        QueryPerformanceCounter(&end);
+        workMs += (beforePresent.QuadPart - now.QuadPart) * 1000.0 / qpcFreq_;
+        presentMs += (end.QuadPart - beforePresent.QuadPart) * 1000.0 / qpcFreq_;
+        ++frames;
+        if (fast) ++fastFrames;
+        const double t = end.QuadPart / qpcFreq_;
+        if (windowStart == 0) windowStart = t;
+        if (t - windowStart >= 1.0) {
+            logx::Info("settings: %d frames/s (%d paced), build %.2f ms + present %.2f ms per frame, last input %.1f s ago "
+                       "(msg 0x%04x), scroll %.0f -> %.0f",
+                       frames, fastFrames, workMs / frames, presentMs / frames, (end.QuadPart - lastInputQpc_) / qpcFreq_,
+                       lastInputMsg_, scrollPos_, scrollTarget_);
+            frames = fastFrames = 0;
+            workMs = presentMs = 0;
+            windowStart = t;
+        }
+    }
+#endif
+
+    // The config only changes through input (clicks, keys, hotkey capture), so compare it then,
+    // plus now and again for anything else.
+    if (!inputSinceCheck_ && ++framesSinceCheck_ < 30) return false;
+    inputSinceCheck_ = false;
+    framesSinceCheck_ = 0;
     std::string current = Serialize(*cfg_);
     if (current != lastSerialized_) {
         lastSerialized_ = std::move(current);
         return true;
     }
     return false;
+}
+
+// Wheel scrolling that glides to its target instead of jumping a whole step per notch, like
+// Windows' own lists. Scrollbar drags, keyboard navigation and page changes move the target too.
+void SettingsWindow::SmoothScroll(float em)
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    const float maxY = ImGui::GetScrollMaxY();
+    const float cur = ImGui::GetScrollY();
+    // The glide runs on its own float position: ImGui keeps whole pixels, and rounding each small
+    // step back would stall the glide just short of its target.
+    if (std::fabs(cur - std::round(scrollPos_)) > 1.f) scrollPos_ = scrollTarget_ = cur;   // moved by something else
+    if (io.MouseWheel != 0.f && !io.KeyCtrl && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
+        const float step = std::floor(std::min(5.f * em, ImGui::GetWindowHeight() * 0.67f));   // ImGui's own step
+        scrollTarget_ -= io.MouseWheel * step;
+    }
+    scrollTarget_ = std::clamp(scrollTarget_, 0.f, maxY);
+    const float k = 1.f - std::exp(-std::max(io.DeltaTime, 0.f) * 18.f);    // ~55 ms to cover most of the way
+    scrollPos_ = std::clamp(scrollPos_ + (scrollTarget_ - scrollPos_) * k, 0.f, maxY);
+    if (std::fabs(scrollTarget_ - scrollPos_) < 0.5f) scrollPos_ = scrollTarget_;
+    const float set = std::round(scrollPos_);
+    if (set != cur) ImGui::SetScrollY(set);
+    scrollAnimating_ = scrollPos_ != scrollTarget_;
 }
 
 void SettingsWindow::Draw(const UiStatus& status, const SensorSnapshot& sensors)
@@ -247,8 +319,10 @@ void SettingsWindow::Draw(const UiStatus& status, const SensorSnapshot& sensors)
 
     ImGui::SetCursorPos(ImVec2(rtl ? 0.f : sideW, headerH));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(em * 1.6f, em * 1.2f));
-    ImGui::BeginChild("##page", ImVec2(io.DisplaySize.x - sideW, bodyH), ImGuiChildFlags_AlwaysUseWindowPadding);
+    ImGui::BeginChild("##page", ImVec2(io.DisplaySize.x - sideW, bodyH), ImGuiChildFlags_AlwaysUseWindowPadding,
+                      ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
+    SmoothScroll(em);
     DrawPage(status, sensors);
     ImGui::Dummy(ImVec2(0, em * 0.5f));
     ImGui::EndChild();
@@ -1081,6 +1155,20 @@ LRESULT CALLBACK SettingsWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
 
 LRESULT SettingsWindow::Handle(UINT msg, WPARAM wp, LPARAM lp)
 {
+    // Windows sends WM_MOUSEMOVE with an unchanged position whenever a window under the cursor
+    // moves or changes z-order (the HUD does every few seconds); only real movement counts.
+    bool realInput = (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) || (msg >= WM_KEYFIRST && msg <= WM_KEYLAST);
+    if (msg == WM_MOUSEMOVE) {
+        realInput = lp != lastMouseLp_;
+        lastMouseLp_ = lp;
+    }
+    if (realInput) {
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        lastInputQpc_ = now.QuadPart;
+        inputSinceCheck_ = true;
+        lastInputMsg_ = msg;
+    }
     // Hotkey capture eats key presses before ImGui sees them.
     if (capturing_ >= 0 && (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)) {
         const UINT vk = (UINT)wp;
@@ -1120,6 +1208,32 @@ LRESULT SettingsWindow::Handle(UINT msg, WPARAM wp, LPARAM lp)
         minimized_ = (wp == SIZE_MINIMIZED);
         if (!minimized_ && target_.Valid()) target_.Resize(LOWORD(lp), HIWORD(lp));
         return 0;
+    case WM_ENTERSIZEMOVE:
+        SetTimer(hwnd_, kModalTimer, USER_TIMER_MINIMUM, nullptr);
+#ifdef FPSO_TEST_INSTANCE
+        logx::Info("settings: move/size loop started");
+#endif
+        return 0;
+    case WM_EXITSIZEMOVE:
+        KillTimer(hwnd_, kModalTimer);
+#ifdef FPSO_TEST_INSTANCE
+        logx::Info("settings: move/size loop ended");
+#endif
+        return 0;
+    case WM_SIZING:
+    case WM_MOVING: {
+        // Treated as activity: the window renders at the display rate while it is resized.
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        lastInputQpc_ = now.QuadPart;
+        break;
+    }
+    case WM_TIMER:
+        if (wp == kModalTimer) {
+            if (onModalTick) onModalTick();
+            return 0;
+        }
+        break;
     case WM_GETMINMAXINFO: {
         auto* mmi = reinterpret_cast<MINMAXINFO*>(lp);
         mmi->ptMinTrackSize.x = (LONG)(kMinW * dpiScale_);

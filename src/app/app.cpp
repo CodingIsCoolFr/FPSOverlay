@@ -16,7 +16,7 @@
 
 namespace {
 
-constexpr wchar_t kMainClass[] = L"FPSOverlay.Main";
+constexpr wchar_t kMainClass[] = APP_ID_W L".Main";
 constexpr UINT WM_TRAY = WM_APP + 1;
 constexpr UINT kTrayId = 1;
 
@@ -26,7 +26,7 @@ enum MenuId : UINT {
 
 UINT ShowSettingsMessage()
 {
-    static const UINT msg = RegisterWindowMessageW(L"FPSOverlay.ShowSettings");
+    static const UINT msg = RegisterWindowMessageW(APP_ID_W L".ShowSettings");
     return msg;
 }
 
@@ -62,7 +62,7 @@ int App::Run(HINSTANCE inst, int argc, wchar_t** argv)
     }
 
     // One instance: a second start just opens the settings of the first.
-    HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\FPSOverlay.SingleInstance");
+    HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\" APP_ID_W L".SingleInstance");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         if (HWND other = FindWindowW(kMainClass, nullptr)) PostMessageW(other, ShowSettingsMessage(), 0, 0);
         logx::Info("Already running; asked the other instance to open settings");
@@ -119,6 +119,9 @@ bool App::Init(bool startHidden)
         return false;
     }
     hud_.onMenu = [this](POINT pt) { ShowMenu(pt, true); };
+    // While either window is dragged, Windows' move loop owns the thread: keep frames coming.
+    hud_.onModalTick = [this] { Frame(true); };
+    settings_.onModalTick = [this] { Frame(true); };
     hud_.onMoved = [this](int left, int top) {
         POINT pt = { left, top };
         HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
@@ -170,14 +173,19 @@ void App::Shutdown()
 void App::Loop()
 {
     while (running_) {
-        // Wake for input or for the next frame, whichever comes first.
+        // Wake for input, for the next HUD frame, or, while the settings window is in use, for
+        // the display being ready for its next frame, whichever comes first.
         int waitMs = 1000 / std::max(1, cfg_.hudFps);
-        if (settings_.IsOpen() && GetForegroundWindow() == settings_.Hwnd()) waitMs = std::min(waitMs, 16);
+        if (settings_.IsOpen() && GetForegroundWindow() == settings_.Hwnd()) waitMs = std::min(waitMs, 33);
         if (!hud_.Visible() && !settings_.IsOpen()) waitMs = 50;
         LARGE_INTEGER due;
         due.QuadPart = -(LONGLONG)waitMs * 10000;
         SetWaitableTimer(frameTimer_, &due, 0, nullptr, nullptr, FALSE);
-        MsgWaitForMultipleObjectsEx(1, &frameTimer_, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+        HANDLE handles[2] = { frameTimer_, nullptr };
+        DWORD count = 1;
+        if (settings_.IsOpen() && settings_.WantsFastFrames() && settings_.FrameWaitable()) handles[count++] = settings_.FrameWaitable();
+        const DWORD woke = MsgWaitForMultipleObjectsEx(count, handles, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+        const bool vblank = count == 2 && woke == WAIT_OBJECT_0 + 1;
 
         MSG msg;
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -186,11 +194,11 @@ void App::Loop()
             DispatchMessageW(&msg);
         }
         if (!running_) break;
-        Frame();
+        Frame(vblank);
     }
 }
 
-void App::Frame()
+void App::Frame(bool settingsVblank)
 {
     const ULONGLONG now = GetTickCount64();
     if (!settings_.CapturingHotkey()) PollHotkeys();
@@ -206,9 +214,15 @@ void App::Frame()
         snapshot_ = sensors_.Snapshot();
     }
 
-    const double avgWindow = std::max(1.0, cfg_.statsIntervalMs / 1000.0);
-    const FrameCapture::Result fr = capture_.Query(tracker_.Pid(), avgWindow, (double)cfg_.lowsWindowSec, &graph_, 180);
-    tracker_.Refine(fr.source);
+    // Frame statistics sort the whole lows window, so refresh them at the HUD's own rate, not on
+    // every settings frame (up to the display refresh rate while the user scrolls).
+    if (now - lastFramesQuery_ >= (ULONGLONG)(1000 / std::max(1, cfg_.hudFps)) || lastFramesQuery_ == 0) {
+        lastFramesQuery_ = now;
+        const double avgWindow = std::max(1.0, cfg_.statsIntervalMs / 1000.0);
+        frames_ = capture_.Query(tracker_.Pid(), avgWindow, (double)cfg_.lowsWindowSec, &graph_, 180);
+        tracker_.Refine(frames_.source);
+    }
+    const FrameCapture::Result& fr = frames_;
     const bool fresh = fr.stats.valid && fr.secondsSinceLastFrame < 1.5;
 
     HudFrameInfo info;
@@ -237,7 +251,7 @@ void App::Frame()
         st.autostart = autostart_.load() == 1;
         st.update = updater::GetStatus();
         st.configPath = win::ToUtf8(configPath_);
-        if (settings_.Tick(st, snapshot_)) {
+        if (settings_.Tick(st, snapshot_, settingsVblank)) {
             SaveSoon();
             PollHotkeys();      // new bindings start clean
         }

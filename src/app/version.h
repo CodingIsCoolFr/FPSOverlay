@@ -4,11 +4,18 @@
 
 #define APP_NAME            "FPS Overlay"
 #define APP_NAME_W          L"FPS Overlay"
-#define APP_ID_W            L"FPSOverlay"          // window classes, mutex, ETW session, task name
+// Window classes, the single-instance mutex, the ETW session and the autostart task are named
+// after APP_ID_W. A test build (cl /DFPSO_TEST_INSTANCE) gets its own names, so it can run beside
+// an installed copy without taking over its FPS capture.
+#ifdef FPSO_TEST_INSTANCE
+#define APP_ID_W            L"FPSOverlayTest"
+#else
+#define APP_ID_W            L"FPSOverlay"
+#endif
 
 #define APP_VERSION_MAJOR   2
 #define APP_VERSION_MINOR   0
-#define APP_VERSION_PATCH   4
+#define APP_VERSION_PATCH   5
 
 #define APP_STR2(x) #x
 #define APP_STR(x)  APP_STR2(x)

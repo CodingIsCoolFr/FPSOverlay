@@ -62,6 +62,7 @@ bool SwapTarget::Create(const D3D& d3d, HWND hwnd, UINT width, UINT height, Mode
         sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
         sd.BufferCount = 2;
         sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+        sd.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
     } else {
         sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
         sd.BufferCount = 1;
@@ -74,12 +75,22 @@ bool SwapTarget::Create(const D3D& d3d, HWND hwnd, UINT width, UINT height, Mode
         // Very old systems: plain blt model.
         sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
         sd.BufferCount = 1;
+        sd.Flags = 0;
         hr = d3d.Factory()->CreateSwapChainForHwnd(d3d.Device(), hwnd, &sd, nullptr, nullptr, &swap_);
     }
     if (FAILED(hr)) {
         logx::Error("CreateSwapChainForHwnd failed 0x%08lx", (unsigned long)hr);
         swap_ = nullptr;
         return false;
+    }
+    flags_ = sd.Flags;
+    if (flags_ & DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT) {
+        IDXGISwapChain2* sc2 = nullptr;
+        if (SUCCEEDED(swap_->QueryInterface(__uuidof(IDXGISwapChain2), reinterpret_cast<void**>(&sc2)))) {
+            sc2->SetMaximumFrameLatency(1);
+            waitable_ = sc2->GetFrameLatencyWaitableObject();
+            sc2->Release();
+        }
     }
     d3d.Factory()->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
     CreateView();
@@ -100,6 +111,9 @@ void SwapTarget::Destroy()
 {
     SafeRelease(rtv_);
     SafeRelease(swap_);
+    if (waitable_) CloseHandle(waitable_);
+    waitable_ = nullptr;
+    flags_ = 0;
     occluded_ = false;
 }
 
@@ -112,7 +126,7 @@ bool SwapTarget::Resize(UINT width, UINT height)
     SafeRelease(rtv_);
     d3d_->Context()->OMSetRenderTargets(0, nullptr, nullptr);
     d3d_->Context()->Flush();
-    if (FAILED(swap_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0))) {
+    if (FAILED(swap_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, flags_))) {
         logx::Warn("ResizeBuffers(%u, %u) failed", width, height);
         CreateView();
         return false;

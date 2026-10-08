@@ -48,6 +48,7 @@ public:
     // Fired from the window procedure.
     std::function<void(POINT screen)> onMenu;               // Ctrl + right click
     std::function<void(int left, int top)> onMoved;         // finished a Ctrl + drag (content top-left, screen px)
+    std::function<void()> onModalTick;                      // during a drag Windows' move loop blocks the app's loop
 
 private:
     static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);

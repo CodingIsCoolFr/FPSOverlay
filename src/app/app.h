@@ -25,7 +25,7 @@ private:
     bool Init(bool startHidden);
     void Shutdown();
     void Loop();
-    void Frame();
+    void Frame(bool settingsVblank = false);
 
     void OpenSettings();
     void SetHudVisible(bool visible);
@@ -71,6 +71,8 @@ private:
     ULONGLONG lastTargetUpdate_ = 0;
     bool hotkeyDown_[(int)cfg::HotkeyAction::Count] = {};
     std::vector<float> graph_;
+    FrameCapture::Result frames_;
+    ULONGLONG lastFramesQuery_ = 0;
     SensorSnapshot snapshot_;
     uint64_t snapshotSeq_ = ~0ull;
 

@@ -15,7 +15,8 @@
 
 namespace {
 
-constexpr wchar_t kClass[] = L"FPSOverlay.Hud";
+constexpr wchar_t kClass[] = APP_ID_W L".Hud";
+constexpr UINT_PTR kModalTimer = 1;
 constexpr float kBaseFontPx = 15.f;
 
 // ── Layout model ────────────────────────────────────────────────────────────
@@ -1024,7 +1025,15 @@ LRESULT Hud::Handle(UINT msg, WPARAM wp, LPARAM lp)
         return MA_NOACTIVATE;
     case WM_ENTERSIZEMOVE:
         dragging_ = true;
+        // Windows runs its own message loop until the drag ends; keep the app's frames going.
+        SetTimer(hwnd_, kModalTimer, USER_TIMER_MINIMUM, nullptr);
         return 0;
+    case WM_TIMER:
+        if (wp == kModalTimer) {
+            if (onModalTick) onModalTick();
+            return 0;
+        }
+        break;
     case WM_MOVING: {
         // Snap to the monitor edges (12 px) while dragging.
         RECT* r = reinterpret_cast<RECT*>(lp);
@@ -1045,6 +1054,7 @@ LRESULT Hud::Handle(UINT msg, WPARAM wp, LPARAM lp)
         return TRUE;
     }
     case WM_EXITSIZEMOVE: {
+        KillTimer(hwnd_, kModalTimer);
         dragging_ = false;
         RECT r;
         GetWindowRect(hwnd_, &r);

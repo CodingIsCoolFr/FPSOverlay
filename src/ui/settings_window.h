@@ -9,6 +9,7 @@
 
 #include <windows.h>
 
+#include <functional>
 #include <string>
 
 struct ImGuiContext;
@@ -49,7 +50,18 @@ public:
     HWND Hwnd() const { return hwnd_; }
 
     // Renders a frame when due. Returns true if the config was edited this frame.
-    bool Tick(const UiStatus& status, const SensorSnapshot& sensors);
+    // vblank: the frame waitable fired (the display can take a frame now).
+    bool Tick(const UiStatus& status, const SensorSnapshot& sensors, bool vblank = false);
+
+    // While the user scrolls, moves the mouse or types (and for a second after), and while a
+    // scroll is still gliding, the window renders once per display refresh, paced by
+    // FrameWaitable(). Otherwise it renders 30 times a second in front, 15 behind other windows.
+    bool WantsFastFrames() const;
+    HANDLE FrameWaitable() const { return target_.FrameWaitable(); }
+
+    // While the window is dragged or resized, Windows' own move loop blocks the app's loop;
+    // this runs the app's frame from a timer meanwhile.
+    std::function<void()> onModalTick;
 
     UiActions TakeActions();
     bool CapturingHotkey() const { return capturing_ >= 0; }
@@ -78,6 +90,7 @@ private:
     void PageGeneral(const UiStatus& status);
     void PageAbout(const UiStatus& status, const SensorSnapshot& sensors);
     void DrawWelcome(const SensorSnapshot& sensors);
+    void SmoothScroll(float em);
 
     HWND hwnd_ = nullptr;
     D3D* d3d_ = nullptr;
@@ -91,7 +104,15 @@ private:
     bool fontsDirty_ = true;
     bool styleDirty_ = true;
     LONGLONG lastFrameQpc_ = 0;
+    LONGLONG lastInputQpc_ = 0;
+    UINT lastInputMsg_ = 0;         // diagnostics (test builds)
+    LPARAM lastMouseLp_ = -1;       // last WM_MOUSEMOVE position
     double qpcFreq_ = 1.0;
+    bool inputSinceCheck_ = true;   // config can only change through input: compare it then
+    int framesSinceCheck_ = 0;
+    float scrollTarget_ = 0.f;      // smooth wheel scrolling of the page
+    float scrollPos_ = 0.f;         // gliding position (float; ImGui keeps whole pixels)
+    bool scrollAnimating_ = false;
     bool minimized_ = false;
     bool welcomeOpen_ = false;
 };
