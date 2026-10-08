@@ -395,6 +395,40 @@ int Probe(int seconds)
     return 0;
 }
 
+// Every CPU temperature reading once a second with the wall-clock time, to line up against
+// another tool's display (screenshots, a phone video of a cooler screen).
+int Temps(int seconds)
+{
+    SensorHub hub;
+    SensorRequest r;
+    r.wantChoices = true;
+    r.dumpTemps = true;
+    r.intervalMs = 1000;
+    hub.Start(r);
+    Sleep(2500);
+    auto find = [](const SensorSnapshot& s, const char* hwType, const char* name) {
+        for (const std::string& line : s.tempDump) {
+            // Columns: type (11) + name of hardware (32) + sensor name (30) + value, as written by the sensor thread.
+            if (line.compare(0, strlen(hwType), hwType) != 0 || line.size() < 82) continue;
+            std::string sensor = line.substr(45, 30);
+            while (!sensor.empty() && sensor.back() == ' ') sensor.pop_back();
+            if (sensor == name) return (float)atof(line.c_str() + 76);
+        }
+        return kNoValue;
+    };
+    Out("time      overlay  package  core-max  core-avg  board-cpu  (C)\n");
+    for (int i = 0; i < seconds; ++i) {
+        Sleep(1000);
+        const SensorSnapshot s = hub.Snapshot();
+        SYSTEMTIME t;
+        GetLocalTime(&t);
+        Out("%02d:%02d:%02d  %6.1f  %7.1f  %8.1f  %8.1f  %9.1f\n", t.wHour, t.wMinute, t.wSecond, s.status.cpuTempRaw,
+            find(s, "Cpu", "CPU Package"), find(s, "Cpu", "Core Max"), find(s, "Cpu", "Core Average"), find(s, "SuperIO", "CPU Core"));
+    }
+    hub.Stop();
+    return 0;
+}
+
 // ── Frame-rate test windows ─────────────────────────────────────────────────
 
 LRESULT CALLBACK TestWndProc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -765,6 +799,7 @@ int Run(int argc, wchar_t** argv, const std::wstring&)
             }
             return DemoFrames(dir, std::clamp(count, 1, 900), layout, std::clamp(scale, 50, 250), std::clamp(accent, 0, 7), all);
         }
+        if (a == L"--temps") return Temps(i + 1 < argc && argv[i + 1][0] != L'-' ? std::clamp(_wtoi(argv[i + 1]), 1, 3600) : 30);
         if (a == L"--update-check") {
             // Check, download, verify and unpack the latest release next to this exe; no install.
             updater::CheckAsync(true);

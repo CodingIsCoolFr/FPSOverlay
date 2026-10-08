@@ -252,6 +252,7 @@ tools/        translation and documentation image scripts
 | `--selftest` | Measure test windows with known frame rates and report the accuracy |
 | `--probe [seconds]` | Print live sensor readings, their CPU cost and every temperature sensor |
 | `--update-check` | Check, download, verify and unpack the latest release next to the exe, without installing it |
+| `--temps [seconds]` | Log every CPU temperature reading once a second with the time, to compare with another tool |
 | `--shots <folder> [--lang <code>] [--scale <factor>]` | Render every settings page and overlay layout to PNG |
 | `--demo-frames <folder> [--count <n>] [--layout vertical\|horizontal\|bar]` | Render an animated overlay sequence to transparent PNGs |
 | `--make-icon <file.ico>` | Regenerate the app icon |

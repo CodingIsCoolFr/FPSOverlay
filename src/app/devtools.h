@@ -3,6 +3,7 @@
 //   --demo-frames <dir>            render an animated HUD sequence to transparent PNGs (sample data)
 //   --probe [seconds]              print live sensor readings and every temperature sensor
 //   --update-check                 check, download, verify and unpack the latest release (no install)
+//   --temps [seconds]              log every CPU temperature reading once a second with the time
 //   --selftest                     measure test windows with known frame rates (needs admin)
 //   --render-test <api> <fps> <s>  test window: api = d3d11 | opengl
 #pragma once
