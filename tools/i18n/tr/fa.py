@@ -50,7 +50,6 @@ T = {
 "FPS, GPU, CPU and RAM captions.": "برچسب‌های FPS، GPU، CPU و RAM.",
 "Behavior": "رفتار",
 "Hide when no game is running": "پنهان کردن وقتی بازی اجرا نیست",
-"The overlay appears only while the app in front is drawing frames.": "لایه فقط وقتی دیده می‌شود که برنامهٔ جلویی در حال رسم فریم باشد.",
 "Hide from screenshots and recordings": "پنهان کردن از عکس صفحه و ضبط",
 "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS، پخش زندهٔ Discord و عکس‌های صفحه لایه را نشان نمی‌دهند. خودتان همچنان آن را می‌بینید.",
 "Where the numbers come from, and how often they update.": "اعداد از کجا می‌آیند و هر چند وقت به‌روز می‌شوند.",
@@ -207,4 +206,6 @@ T = {
 "Support on Ko-fi": "حمایت در Ko-fi",
 "Support": "حمایت",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay رایگان است و یک نفر آن را می‌سازد. اگر برایتان مفید است، یک قهوه در Ko-fi به ادامهٔ آن کمک می‌کند. هیچ‌وقت اجباری نیست و هیچ قابلیتی قفل نمی‌شود.",
+"Count %s as a game": "%s را بازی حساب کن",
+"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "لایه فقط وقتی نمایش داده می‌شود که یک بازی در جلو باشد. اگر دربارهٔ برنامه‌ای اشتباه کرد، وقتی آن برنامه باز است روی نماد سینی سیستم راست‌کلیک کنید.",
 }

@@ -34,6 +34,8 @@ private:
     void SaveSoon();
     void SaveNow();
     SensorRequest BuildSensorRequest() const;
+    bool GameShown(ULONGLONG now, const FrameCapture::Result& frames);
+    bool GameInFront();
     void HandleUiActions(const UiActions& a);
     void RefreshAutostartAsync();
 
@@ -69,6 +71,8 @@ private:
     bool elevated_ = false;
     ULONGLONG saveDue_ = 0;
     ULONGLONG lastTargetUpdate_ = 0;
+    bool gameShown_ = false;        // "Hide when no game is running" currently shows the HUD
+    ULONGLONG gameSeenAt_ = 0;      // last tick a game was drawing in front
     bool hotkeyDown_[(int)cfg::HotkeyAction::Count] = {};
     std::vector<float> graph_;
     FrameCapture::Result frames_;

@@ -50,7 +50,6 @@ T = {
 "FPS, GPU, CPU and RAM captions.": "تسميات FPS وGPU وCPU وRAM.",
 "Behavior": "السلوك",
 "Hide when no game is running": "إخفاء عند عدم تشغيل لعبة",
-"The overlay appears only while the app in front is drawing frames.": "تظهر الطبقة فقط عندما يرسم التطبيق الأمامي إطارات.",
 "Hide from screenshots and recordings": "إخفاء من لقطات الشاشة والتسجيلات",
 "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "لن تظهر الطبقة في OBS أو بث Discord أو لقطات الشاشة. ستظل تراها أنت.",
 "Where the numbers come from, and how often they update.": "مصدر القيم وعدد مرات تحديثها.",
@@ -207,4 +206,6 @@ T = {
 "Support on Ko-fi": "ادعم على Ko-fi",
 "Support": "ادعم",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay مجاني ويطوّره شخص واحد. إذا كان مفيدًا لك، فإن فنجان قهوة على Ko-fi يساعد على استمراره. الدعم ليس إلزاميًا أبدًا، ولا توجد أي ميزة محجوبة.",
+"Count %s as a game": "اعتبار %s لعبة",
+"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "تظهر الطبقة فقط عندما تكون لعبة في المقدمة. إذا أخطأت في تطبيق ما، فانقر بزر الماوس الأيمن على أيقونة شريط المهام بينما يكون ذلك التطبيق مفتوحًا.",
 }

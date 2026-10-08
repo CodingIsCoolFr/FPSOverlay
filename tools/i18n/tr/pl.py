@@ -50,7 +50,6 @@ T = {
 "FPS, GPU, CPU and RAM captions.": "Etykiety FPS, GPU, CPU i RAM.",
 "Behavior": "Zachowanie",
 "Hide when no game is running": "Ukryj, gdy żadna gra nie działa",
-"The overlay appears only while the app in front is drawing frames.": "Nakładka pojawia się tylko wtedy, gdy aplikacja na pierwszym planie rysuje klatki.",
 "Hide from screenshots and recordings": "Ukryj na zrzutach i nagraniach",
 "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS, transmisje na Discordzie i zrzuty ekranu nie pokażą nakładki. Ty nadal ją widzisz.",
 "Where the numbers come from, and how often they update.": "Skąd pochodzą wartości i jak często się odświeżają.",
@@ -207,4 +206,6 @@ T = {
 "Support on Ko-fi": "Wesprzyj na Ko-fi",
 "Support": "Wesprzyj",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay jest darmowy i tworzy go jedna osoba. Jeśli ci pomaga, kawa na Ko-fi pozwala go dalej rozwijać. Nigdy nie jest to wymagane i żadna funkcja nie jest blokowana.",
+"Count %s as a game": "Traktuj %s jako grę",
+"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "Nakładka pojawia się tylko wtedy, gdy na pierwszym planie jest gra. Jeśli źle oceni aplikację, kliknij prawym przyciskiem ikonę w zasobniku, gdy ta aplikacja jest otwarta.",
 }

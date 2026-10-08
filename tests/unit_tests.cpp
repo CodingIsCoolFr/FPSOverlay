@@ -5,6 +5,7 @@
 #include "app/ini.h"
 #include "app/updater.h"
 #include "capture/frame_stats.h"
+#include "capture/game_detect.h"
 #include "sensors/cpu_direct.h"
 #include "sensors/lhm_select.h"
 
@@ -91,6 +92,57 @@ static void TestConfig()
     CHECK(clamped.layout == cfg::Layout::Vertical);
     CHECK(clamped.hudFps == 30);
     CHECK(clamped.hotkeys[(int)cfg::HotkeyAction::ToggleHud].vk == 0);
+
+    // Game lists: lower-cased, trimmed, no blanks or duplicates, and they survive a round trip.
+    Ini lists;
+    lists.Parse("[Games]\ngames= Tool.EXE ; ;tool.exe;emu.exe\nnotGames=Chat.exe\n");
+    cfg::Config g;
+    cfg::Load(g, lists);
+    CHECK(g.gameApps == (std::vector<std::string>{ "tool.exe", "emu.exe" }));
+    CHECK(g.notGameApps == (std::vector<std::string>{ "chat.exe" }));
+    Ini again;
+    cfg::Store(g, again);
+    cfg::Config g2;
+    cfg::Load(g2, again);
+    CHECK(g2.gameApps == g.gameApps && g2.notGameApps == g.notGameApps);
+}
+
+// ── Game detection ──────────────────────────────────────────────────────────
+
+static void TestGameDetect()
+{
+    using games::Verdict;
+    const std::vector<std::wstring> known = { L"c:\\games\\indie\\thing.exe", L"d:\\stuff\\minecraft\\javaw.exe" };
+    games::Choices none;
+    auto classify = [&](const wchar_t* path, const char* exe, const games::Choices& ch) {
+        return games::Classify(path, exe, ch, known);
+    };
+
+    // Library folders, any case.
+    CHECK(classify(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\VRChat\\VRChat.exe", "VRChat.exe", none) == Verdict::Game);
+    CHECK(classify(L"D:\\XboxGames\\Forza\\Content\\forza.exe", "forza.exe", none) == Verdict::Game);
+    CHECK(classify(L"C:\\Users\\me\\Desktop\\Games\\Bodycam\\Bodycam.exe", "Bodycam.exe", none) == Verdict::Game);
+    // Windows' own game list matches whole paths, case-insensitively.
+    CHECK(classify(L"D:\\Stuff\\Minecraft\\JAVAW.exe", "JAVAW.exe", none) == Verdict::Game);
+    CHECK(classify(L"D:\\Other\\javaw.exe", "javaw.exe", none) == Verdict::Unknown);
+    // Apps that draw frames but are not games, even inside a game folder or on Windows' list.
+    CHECK(classify(L"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "chrome.exe", none) == Verdict::NotGame);
+    CHECK(classify(L"C:\\Users\\me\\AppData\\Local\\AnthropicClaude\\claude.exe", "Claude.exe", none) == Verdict::NotGame);
+    CHECK(classify(L"C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe",
+                   "EpicGamesLauncher.exe", none) == Verdict::NotGame);
+    CHECK(classify(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe",
+                   "wallpaper64.exe", none) == Verdict::NotGame);
+    // Unknown programs are left to the full-screen test.
+    CHECK(classify(L"C:\\Tools\\CrashDetective.exe", "CrashDetective.exe", none) == Verdict::Unknown);
+    CHECK(classify(L"", "", none) == Verdict::Unknown);
+
+    // The user's choice beats everything else.
+    games::Choices mine;
+    mine.games = { "crashdetective.exe", "chrome.exe" };
+    mine.notGames = { "vrchat.exe" };
+    CHECK(classify(L"C:\\Tools\\CrashDetective.exe", "CrashDetective.exe", mine) == Verdict::Game);
+    CHECK(classify(L"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "chrome.exe", mine) == Verdict::Game);
+    CHECK(classify(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\VRChat\\VRChat.exe", "VRChat.exe", mine) == Verdict::NotGame);
 }
 
 // ── Frame statistics ────────────────────────────────────────────────────────
@@ -303,6 +355,7 @@ int main()
     TestReleaseJson();
     TestIni();
     TestConfig();
+    TestGameDetect();
     TestFrameStats();
     TestLhmSelect();
     printf("%d checks, %d failures\n", g_checks, g_failures);

@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <vector>
 
@@ -64,6 +66,31 @@ int Snap(int v, std::initializer_list<int> allowed, int def)
     for (int a : allowed)
         if (a == v) return v;
     return def;
+}
+
+// "a.exe; b.exe" <-> { "a.exe", "b.exe" }, lower-case, no blanks or duplicates.
+std::vector<std::string> SplitList(const std::string& s)
+{
+    std::vector<std::string> out;
+    size_t at = 0;
+    while (at <= s.size()) {
+        size_t end = s.find(';', at);
+        if (end == std::string::npos) end = s.size();
+        std::string item = s.substr(at, end - at);
+        while (!item.empty() && item.front() == ' ') item.erase(0, 1);
+        while (!item.empty() && item.back() == ' ') item.pop_back();
+        for (char& ch : item) ch = (char)tolower((unsigned char)ch);
+        if (!item.empty() && std::find(out.begin(), out.end(), item) == out.end()) out.push_back(item);
+        at = end + 1;
+    }
+    return out;
+}
+
+std::string JoinList(const std::vector<std::string>& v)
+{
+    std::string s;
+    for (const auto& item : v) s += (s.empty() ? "" : ";") + item;
+    return s;
 }
 
 } // namespace
@@ -130,6 +157,8 @@ void Load(Config& c, const Ini& ini)
     c.gpu = ini.Get("Sensors", "gpu");
     c.cpuTempSensor = ini.Get("Sensors", "cpuTempSensor");
     c.cpuFanSensor = ini.Get("Sensors", "cpuFanSensor");
+    c.gameApps = SplitList(ini.Get("Games", "games"));
+    c.notGameApps = SplitList(ini.Get("Games", "notGames"));
 
     for (int i = 0; i < (int)HotkeyAction::Count; ++i) {
         if (ini.Has("Hotkeys", kHotkeyKeys[i]))
@@ -182,6 +211,8 @@ void Store(const Config& c, Ini& ini)
     ini.Set("Sensors", "gpu", c.gpu);
     ini.Set("Sensors", "cpuTempSensor", c.cpuTempSensor);
     ini.Set("Sensors", "cpuFanSensor", c.cpuFanSensor);
+    ini.Set("Games", "games", JoinList(c.gameApps));
+    ini.Set("Games", "notGames", JoinList(c.notGameApps));
 
     for (int i = 0; i < (int)HotkeyAction::Count; ++i)
         ini.Set("Hotkeys", kHotkeyKeys[i], HotkeyToString(c.hotkeys[i]));

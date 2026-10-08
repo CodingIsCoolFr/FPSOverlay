@@ -32,8 +32,17 @@ public:
     bool Create(HINSTANCE inst, D3D& d3d);
     void Destroy();
 
+    // Fades in or out over a fraction of a second; the window hides once the fade-out ends.
     void SetVisible(bool visible);
     bool Visible() const { return visible_; }
+    bool Active() const { return visible_ || shown_; }     // wanted, or still fading out
+    bool Fading() const { return visible_ ? fade_ < 1.f : shown_; }
+    // The monitor the HUD goes on, known even while it is hidden.
+    HMONITOR Monitor(const cfg::Config& cfg)
+    {
+        RECT rc;
+        return ResolveMonitor(cfg, rc) ? monitor_ : nullptr;
+    }
 
     // Renders one frame when due (cfg.hudFps). `force` refreshes the numbers immediately.
     void Tick(const cfg::Config& cfg, const HudFrameInfo& frames, const SensorSnapshot& sensors, bool force = false);
@@ -71,6 +80,7 @@ private:
 
     bool visible_ = false;
     bool shown_ = false;
+    float fade_ = 0.f;          // 0 hidden .. 1 fully shown
     bool interactive_ = false;
     bool dragging_ = false;
     bool clickThrough_ = true;

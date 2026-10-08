@@ -50,7 +50,6 @@ T = {
 "FPS, GPU, CPU and RAM captions.": "FPS、GPU、CPU 和 RAM 标签。",
 "Behavior": "行为",
 "Hide when no game is running": "没有游戏运行时隐藏",
-"The overlay appears only while the app in front is drawing frames.": "仅当前台应用正在绘制画面时显示叠加层。",
 "Hide from screenshots and recordings": "在截图和录制中隐藏",
 "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS、Discord 直播和截图中不会出现叠加层。你自己仍能看到。",
 "Where the numbers come from, and how often they update.": "数据来源以及更新频率。",
@@ -207,4 +206,6 @@ T = {
 "Support on Ko-fi": "在 Ko-fi 上支持",
 "Support": "支持",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay 免费，由一个人开发。如果它对你有帮助，在 Ko-fi 上请杯咖啡就能让它继续下去。支持完全自愿，所有功能都不受限制。",
+"Count %s as a game": "将 %s 视为游戏",
+"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "只有游戏在前台时才显示叠加层。如果某个应用判断错了，请在该应用打开时右键单击托盘图标。",
 }

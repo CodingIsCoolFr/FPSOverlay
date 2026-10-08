@@ -14,9 +14,10 @@ bool IsShellWindow(HWND hwnd)
 
 } // namespace
 
-DWORD TargetTracker::ForegroundPid()
+DWORD TargetTracker::ForegroundPid(HWND* window)
 {
     HWND fg = GetForegroundWindow();
+    if (window) *window = fg;
     if (!fg || IsShellWindow(fg)) return 0;
 
     DWORD pid = 0;
@@ -42,27 +43,56 @@ void TargetTracker::SetTarget(DWORD pid)
     pid_ = pid;
     name_.clear();
     exe_.clear();
+    path_.clear();
     api_.clear();
     apiForSource_ = -2;
+    isGame_ = false;
+    fullscreen_ = false;
     if (!pid) return;
 
     win::ProcessInfo info;
     if (win::QueryProcessInfo(pid, info)) {
         exe_ = info.exe;
+        path_ = info.path;
         name_ = info.description.empty() ? info.exe : info.description;
     }
 }
 
-void TargetTracker::Update(const FrameCapture& capture)
+bool TargetTracker::Judge(const Candidate& c, const games::Choices& choices) const
+{
+    switch (games::Classify(c.path, c.exe, choices, games::WindowsGameList())) {
+        case games::Verdict::Game:    return true;
+        case games::Verdict::NotGame: return false;
+        default:                      return c.fullscreen;
+    }
+}
+
+void TargetTracker::Update(const FrameCapture& capture, const games::Choices& choices)
 {
     if (pid_ && !win::ProcessAlive(pid_)) SetTarget(0);
 
-    const DWORD fg = ForegroundPid();
-    if (!fg || fg == pid_) return;
+    HWND fgWnd = nullptr;
+    const DWORD fg = ForegroundPid(&fgWnd);
+    if (fg && fg != fg_.pid) {
+        fg_ = {};
+        fg_.pid = fg;
+        win::ProcessInfo info;
+        if (win::QueryProcessInfo(fg, info)) {
+            fg_.path = info.path;
+            fg_.exe = info.exe;
+        }
+    }
+    if (fg) fg_.fullscreen = games::FillsMonitor(fgWnd);
 
-    const bool fgDrawing = capture.IsPresenting(fg, 1.5);
-    const bool curDrawing = pid_ && capture.IsPresenting(pid_, 2.0);
-    if (fgDrawing || !curDrawing) SetTarget(fg);
+    if (fg && fg != pid_) {
+        const bool fgDrawing = capture.IsPresenting(fg, 1.5);
+        const bool curDrawing = pid_ && capture.IsPresenting(pid_, 2.0);
+        // A game in front always takes over. Any other app only while no game is still drawing,
+        // so a tool or a browser in front never steals the HUD from a running game.
+        if (!curDrawing || (fgDrawing && (!isGame_ || Judge(fg_, choices)))) SetTarget(fg);
+    }
+    if (fg && fg == pid_) fullscreen_ = fg_.fullscreen;
+    isGame_ = pid_ && Judge(Candidate{ pid_, path_, exe_, fullscreen_ }, choices);
 }
 
 void TargetTracker::Refine(PresentSource source)

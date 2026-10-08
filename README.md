@@ -170,6 +170,8 @@ From then on the app updates itself. To remove it: *Windows Settings → Apps �
 | Open settings | Click the tray icon |
 | Reset the 1% and 0.1% lows | Set a hotkey under *Hotkeys* |
 | Start with Windows | *Settings → General*. It uses Task Scheduler, so there is no admin prompt at sign-in. |
+| Show the overlay only in games | *Settings → Appearance → Hide when no game is running* |
+| Fix what counts as a game | With that app open, right-click the tray icon → **Count … as a game** |
 
 Settings are saved in `config.ini` next to the exe, or in `%LOCALAPPDATA%\FPSOverlay` when that
 folder is read-only. The log file, `FPSOverlay.log`, is in the same place.
@@ -307,6 +309,11 @@ the *Performance Log Users* group).
 
 Switch the game to **borderless** or **windowed** mode. Exclusive fullscreen draws over every
 other window, this overlay included.
+
+With *Hide when no game is running* on, the overlay also waits until it knows the app is a game.
+It knows games from Steam, Epic, GOG, Xbox and other game folders, and from the list of games
+Windows itself keeps for the Game Bar. Any other app counts while it fills the screen. If it gets
+one wrong, open that app, right-click the tray icon and pick **Count … as a game**.
 </details>
 
 <details>

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 class Ini;
 
@@ -78,6 +79,10 @@ struct Config {
     std::string gpu;                // GpuAdapter::key (name + PCI slot); empty = automatic
     std::string cpuTempSensor;      // LibreHardwareMonitor identifier; empty = automatic
     std::string cpuFanSensor;       // LibreHardwareMonitor identifier; empty = automatic
+
+    // What counts as a game, overriding the automatic choice (tray menu): lower-case exe names.
+    std::vector<std::string> gameApps;
+    std::vector<std::string> notGameApps;
 
     Hotkey hotkeys[(int)HotkeyAction::Count];
 

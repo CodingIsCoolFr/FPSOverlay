@@ -21,7 +21,7 @@ constexpr UINT WM_TRAY = WM_APP + 1;
 constexpr UINT kTrayId = 1;
 
 enum MenuId : UINT {
-    IdSettings = 100, IdToggleHud, IdResetStats, IdSnapCorner, IdQuit,
+    IdSettings = 100, IdToggleHud, IdResetStats, IdSnapCorner, IdQuit, IdCountAsGame,
 };
 
 UINT ShowSettingsMessage()
@@ -177,7 +177,8 @@ void App::Loop()
         // the display being ready for its next frame, whichever comes first.
         int waitMs = 1000 / std::max(1, cfg_.hudFps);
         if (settings_.IsOpen() && GetForegroundWindow() == settings_.Hwnd()) waitMs = std::min(waitMs, 33);
-        if (!hud_.Visible() && !settings_.IsOpen()) waitMs = 50;
+        if (!hud_.Active() && !settings_.IsOpen()) waitMs = 50;
+        if (hud_.Fading()) waitMs = std::min(waitMs, 16);
         LARGE_INTEGER due;
         due.QuadPart = -(LONGLONG)waitMs * 10000;
         SetWaitableTimer(frameTimer_, &due, 0, nullptr, nullptr, FALSE);
@@ -205,7 +206,7 @@ void App::Frame(bool settingsVblank)
 
     if (now - lastTargetUpdate_ >= 250) {
         lastTargetUpdate_ = now;
-        tracker_.Update(capture_);
+        tracker_.Update(capture_, games::Choices{ cfg_.gameApps, cfg_.notGameApps });
     }
 
     const uint64_t seq = sensors_.Seq();
@@ -233,7 +234,7 @@ void App::Frame(bool settingsVblank)
     info.target = tracker_.DisplayName();
     info.api = tracker_.ApiLabel();
 
-    hud_.SetVisible(hudWanted_ && !(cfg_.hideWhenIdle && !fresh));
+    hud_.SetVisible(hudWanted_ && (!cfg_.hideWhenIdle || GameShown(now, fr)));
     theme::SetAccent(cfg_.accent);
     hud_.Tick(cfg_, info, snapshot_);
 
@@ -261,6 +262,33 @@ void App::Frame(bool settingsVblank)
     sensors_.SetRequest(BuildSensorRequest());
 
     if (saveDue_ && now >= saveDue_) SaveNow();
+}
+
+// "Hide when no game is running": a game is drawing and nothing else is in front of it on the
+// HUD's monitor. Loading screens and quick focus changes do not make the HUD blink.
+bool App::GameShown(ULONGLONG now, const FrameCapture::Result& fr)
+{
+    const bool drawing = fr.secondsSinceLastFrame < (gameShown_ ? 3.0 : 0.5);
+    if (tracker_.IsGame() && drawing && GameInFront()) {
+        gameShown_ = true;
+        gameSeenAt_ = now;
+    } else if (gameShown_ && now - gameSeenAt_ > 400) {
+        gameShown_ = false;
+    }
+    return gameShown_;
+}
+
+bool App::GameInFront()
+{
+    HWND fg = GetForegroundWindow();
+    if (!fg) return true;                               // focus is moving (alt-tab)
+    DWORD owner = 0;
+    GetWindowThreadProcessId(fg, &owner);
+    if (owner == GetCurrentProcessId()) return true;    // settings, menus, a Ctrl-drag of the HUD
+    if (TargetTracker::ForegroundPid() == tracker_.Pid()) return true;
+    // Another app is in front. That only covers the game when it is on the HUD's monitor:
+    // Discord on a second screen leaves the game, and the HUD, alone.
+    return MonitorFromWindow(fg, MONITOR_DEFAULTTONULL) != hud_.Monitor(cfg_);
 }
 
 SensorRequest App::BuildSensorRequest() const
@@ -481,6 +509,11 @@ void App::ShowMenu(POINT at, bool fromHud)
     add(IdSettings, "Settings");
     add(IdToggleHud, hudWanted_ ? "Hide overlay" : "Show overlay");
     add(IdResetStats, "Reset 1% lows", tracker_.Pid() != 0);
+    if (tracker_.Pid()) {
+        std::wstring label = win::ToWide(locale::TF("Count %s as a game", tracker_.DisplayName().c_str()));
+        for (size_t i = label.find(L'&'); i != std::wstring::npos; i = label.find(L'&', i + 2)) label.insert(i, 1, L'&');
+        AppendMenuW(m, MF_STRING | (tracker_.IsGame() ? MF_CHECKED : 0), IdCountAsGame, label.c_str());
+    }
     if (fromHud) add(IdSnapCorner, "Snap back to corner", cfg_.customPos);
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
     add(IdQuit, "Quit");
@@ -496,6 +529,17 @@ void App::ShowMenu(POINT at, bool fromHud)
         case IdToggleHud:  SetHudVisible(!hudWanted_); break;
         case IdResetStats: ResetStats(); break;
         case IdSnapCorner: cfg_.customPos = false; SaveSoon(); break;
+        case IdCountAsGame: {
+            // Flip what the app thinks, and remember it for this program from now on.
+            const std::string exe = games::Lower(tracker_.ExeName());
+            const bool game = !tracker_.IsGame();
+            for (auto* list : { &cfg_.gameApps, &cfg_.notGameApps })
+                list->erase(std::remove(list->begin(), list->end(), exe), list->end());
+            if (!exe.empty()) (game ? cfg_.gameApps : cfg_.notGameApps).push_back(exe);
+            lastTargetUpdate_ = 0;      // re-judge on the next frame
+            SaveSoon();
+            break;
+        }
         case IdQuit:       running_ = false; break;
         default: break;
     }

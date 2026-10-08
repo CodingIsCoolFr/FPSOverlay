@@ -340,11 +340,23 @@ void Hud::EnsureFonts(float pixelSize)
 void Hud::SetVisible(bool visible)
 {
     visible_ = visible;
-    if (!visible && shown_) {
-        ShowWindow(hwnd_, SW_HIDE);
-        shown_ = false;
+}
+
+namespace {
+
+// Multiplies every vertex's alpha: fades the whole HUD, background and text alike.
+void ScaleAlpha(ImDrawData* dd, float f)
+{
+    const unsigned scale = (unsigned)std::lround(std::clamp(f, 0.f, 1.f) * 256.f);
+    for (ImDrawList* list : dd->CmdLists) {
+        for (ImDrawVert& v : list->VtxBuffer) {
+            const unsigned a = (v.col >> IM_COL32_A_SHIFT) & 0xFF;
+            v.col = (v.col & ~IM_COL32_A_MASK) | (((a * scale) >> 8) << IM_COL32_A_SHIFT);
+        }
     }
 }
+
+} // namespace
 
 void Hud::SetClickThrough(bool on)
 {
@@ -427,15 +439,24 @@ void Hud::Tick(const cfg::Config& c, const HudFrameInfo& frames, const SensorSna
 {
     if (!hwnd_ || !ctx_) return;
     UpdateInteractive();
-    if (!visible_) return;
+    if (!visible_ && !shown_) return;
 
     LARGE_INTEGER now;
     QueryPerformanceCounter(&now);
     const double sinceFrame = (now.QuadPart - lastFrameQpc_) / qpcFreq_;
-    const int fps = interactive_ ? std::max(c.hudFps, 60) : c.hudFps;
+    const int fps = (interactive_ || Fading()) ? std::max(c.hudFps, 60) : c.hudFps;
     if (!force && lastFrameQpc_ && sinceFrame < 1.0 / fps - 0.001) return;
     const float dt = lastFrameQpc_ ? (float)std::clamp(sinceFrame, 0.0005, 0.25) : 1.f / 30.f;
     lastFrameQpc_ = now.QuadPart;
+
+    // Quick fade in, slightly slower fade out. A HUD coming back from hidden starts at zero.
+    const float fadeDt = shown_ ? dt : 1.f / 60.f;
+    fade_ = visible_ ? std::min(1.f, fade_ + fadeDt / 0.12f) : std::max(0.f, fade_ - fadeDt / 0.2f);
+    if (!visible_ && fade_ <= 0.f) {
+        ShowWindow(hwnd_, SW_HIDE);
+        shown_ = false;
+        return;
+    }
 
     // Re-assert topmost now and then: borderless games sometimes push themselves above us.
     if ((now.QuadPart - lastTopmostQpc_) / qpcFreq_ > 2.0) {
@@ -484,6 +505,7 @@ void Hud::Tick(const cfg::Config& c, const HudFrameInfo& frames, const SensorSna
 
     if (!dragging_) Place(c, contentW_, contentH_);
 
+    if (fade_ < 1.f) ScaleAlpha(ImGui::GetDrawData(), fade_);
     const float clear[4] = { 0, 0, 0, 0 };
     target_.Bind(clear);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());

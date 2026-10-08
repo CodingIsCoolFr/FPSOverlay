@@ -50,7 +50,6 @@ T = {
 "FPS, GPU, CPU and RAM captions.": "FPS、GPU、CPU、RAMのラベル。",
 "Behavior": "動作",
 "Hide when no game is running": "ゲームが動いていないときは隠す",
-"The overlay appears only while the app in front is drawing frames.": "前面のアプリがフレームを描画している間だけ表示します。",
 "Hide from screenshots and recordings": "スクリーンショットと録画から隠す",
 "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS、Discordの配信、スクリーンショットにはオーバーレイが映りません。自分の画面には表示されます。",
 "Where the numbers come from, and how often they update.": "数値の取得元と更新頻度。",
@@ -207,4 +206,6 @@ T = {
 "Support on Ko-fi": "Ko-fi で支援する",
 "Support": "支援する",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay は無料で、一人で開発しています。役に立ったら、Ko-fi でコーヒーを一杯おごってもらえると開発を続ける力になります。支援は任意で、機能が制限されることはありません。",
+"Count %s as a game": "%s をゲームとして扱う",
+"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "オーバーレイはゲームが前面にあるときだけ表示されます。アプリの判定が間違っている場合は、そのアプリを開いたままタスクトレイのアイコンを右クリックしてください。",
 }

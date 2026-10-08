@@ -50,7 +50,6 @@ T = {
 "FPS, GPU, CPU and RAM captions.": "FPS, GPU, CPU, RAM 라벨.",
 "Behavior": "동작",
 "Hide when no game is running": "게임이 실행 중이 아니면 숨기기",
-"The overlay appears only while the app in front is drawing frames.": "앞에 있는 앱이 프레임을 그리는 동안에만 오버레이가 나타납니다.",
 "Hide from screenshots and recordings": "스크린샷과 녹화에서 숨기기",
 "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS, Discord 방송, 스크린샷에는 오버레이가 보이지 않습니다. 내 화면에는 계속 보입니다.",
 "Where the numbers come from, and how often they update.": "값을 어디서 가져오고 얼마나 자주 갱신하는지.",
@@ -207,4 +206,6 @@ T = {
 "Support on Ko-fi": "Ko-fi에서 후원하기",
 "Support": "후원하기",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay는 무료이며 한 사람이 만듭니다. 도움이 되었다면 Ko-fi에서 커피 한 잔으로 개발을 응원해 주세요. 후원은 언제나 선택이며, 제한되는 기능은 없습니다.",
+"Count %s as a game": "%s을(를) 게임으로 취급",
+"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "오버레이는 게임이 앞에 있을 때만 나타납니다. 앱을 잘못 판단하면 그 앱을 연 채로 트레이 아이콘을 마우스 오른쪽 버튼으로 클릭하세요.",
 }

@@ -50,7 +50,6 @@ T = {
 "FPS, GPU, CPU and RAM captions.": "FPS, GPU, CPU ve RAM etiketleri.",
 "Behavior": "Davranış",
 "Hide when no game is running": "Oyun çalışmıyorsa gizle",
-"The overlay appears only while the app in front is drawing frames.": "Kaplama yalnızca öndeki uygulama kare çizerken görünür.",
 "Hide from screenshots and recordings": "Ekran görüntüleri ve kayıtlarda gizle",
 "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS, Discord yayınları ve ekran görüntüleri kaplamayı göstermez. Sen yine de görürsün.",
 "Where the numbers come from, and how often they update.": "Değerlerin nereden geldiği ve ne sıklıkla güncellendiği.",
@@ -207,4 +206,6 @@ T = {
 "Support on Ko-fi": "Ko-fi'de destek ol",
 "Support": "Destek ol",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay ücretsizdir ve tek bir kişi tarafından geliştirilir. İşine yarıyorsa, Ko-fi'de bir kahve onun devam etmesini sağlar. Asla zorunlu değildir ve hiçbir özellik kısıtlanmaz.",
+"Count %s as a game": "%s oyun olarak say",
+"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "Kaplama yalnızca önde bir oyun varken görünür. Bir uygulamayı yanlış değerlendirirse, o uygulama açıkken bildirim alanındaki simgeye sağ tıkla.",
 }
