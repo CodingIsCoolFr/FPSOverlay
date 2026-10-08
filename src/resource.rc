@@ -7,6 +7,11 @@
 // PawnIO driver installer, run on request from Settings > Sensors
 101 RCDATA "../libs/lhwm/PawnIO_setup.exe"
 
+// Signed PawnIO modules for reading the CPU package temperature directly (LGPL-2.1-or-later,
+// PawnIO.Modules 0.1.6; see libs/pawnio/README.txt)
+102 RCDATA "../libs/pawnio/IntelMSR.bin"
+103 RCDATA "../libs/pawnio/AMDFamily17.bin"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH, 0
 PRODUCTVERSION  APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH, 0

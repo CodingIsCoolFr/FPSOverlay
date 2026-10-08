@@ -186,10 +186,8 @@ T = {
 "Cyan": "Camgöbeği",
 "Silver": "Gümüş",
 "Package": "Package",
-"The temperature the CPU itself reports. Best for spotting overheating.": "İşlemcinin kendi bildirdiği sıcaklık. Aşırı ısınmayı görmek için en iyisi.",
 "Hottest core": "En sıcak çekirdek",
 "Average of all cores": "Tüm çekirdeklerin ortalaması",
-"Lower and steadier than Package.": "Package'dan daha düşük ve daha sabit.",
 "Control temperature": "Kontrol sıcaklığı",
 "Includes a fan-control offset, so it reads higher than the real temperature.": "Fan kontrolü için bir ofset içerir, bu yüzden gerçek sıcaklıktan yüksek okunur.",
 "Package is the CPU's own reading. Average of all cores is lower and steadier.": "Package, işlemcinin kendi ölçümüdür. Tüm çekirdeklerin ortalaması daha düşük ve daha sabittir.",
@@ -204,4 +202,6 @@ T = {
 "Install updates automatically": "Güncellemeleri otomatik kur",
 "Downloads new versions from GitHub, checks them and installs them when no game is running.": "Yeni sürümleri GitHub'dan indirir, doğrular ve hiçbir oyun çalışmıyorken kurar.",
 "Updated to version %s": "%s sürümüne güncellendi",
+"The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "İşlemcinin kendi ölçümü; HWiNFO, Corsair iCUE ve NZXT CAM varsayılan olarak bunu gösterir.",
+"Lower than Package. NZXT CAM's Average setting shows this one.": "Package'dan daha düşük. NZXT CAM'in Average ayarı bunu gösterir.",
 }

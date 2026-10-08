@@ -186,10 +186,8 @@ T = {
 "Cyan": "シアン",
 "Silver": "シルバー",
 "Package": "Package",
-"The temperature the CPU itself reports. Best for spotting overheating.": "CPU自身が報告する温度です。過熱の確認に最適です。",
 "Hottest core": "最も熱いコア",
 "Average of all cores": "全コアの平均",
-"Lower and steadier than Package.": "Packageより低く、安定しています。",
 "Control temperature": "制御温度",
 "Includes a fan-control offset, so it reads higher than the real temperature.": "ファン制御用のオフセットを含むため、実際の温度より高く表示されます。",
 "Package is the CPU's own reading. Average of all cores is lower and steadier.": "PackageはCPU自身の測定値です。全コアの平均は低く、安定しています。",
@@ -204,4 +202,6 @@ T = {
 "Install updates automatically": "更新を自動でインストール",
 "Downloads new versions from GitHub, checks them and installs them when no game is running.": "GitHubから新しいバージョンをダウンロードし、確認してから、ゲームが動いていないときにインストールします。",
 "Updated to version %s": "バージョン %s に更新しました",
+"The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "CPU自身の測定値です。HWiNFO、Corsair iCUE、NZXT CAMは標準でこれを表示します。",
+"Lower than Package. NZXT CAM's Average setting shows this one.": "Packageより低い値です。NZXT CAMのAverage設定はこの値を表示します。",
 }

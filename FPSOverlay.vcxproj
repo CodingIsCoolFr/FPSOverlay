@@ -109,6 +109,7 @@
     <ClCompile Include="src\platform\shell.cpp" />
     <ClCompile Include="src\platform\win_util.cpp" />
     <ClCompile Include="src\render\d3d.cpp" />
+    <ClCompile Include="src\sensors\cpu_direct.cpp" />
     <ClCompile Include="src\sensors\gpu_adapters.cpp" />
     <ClCompile Include="src\sensors\lhm_select.cpp" />
     <ClCompile Include="src\sensors\nvml_reader.cpp" />

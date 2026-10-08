@@ -1,6 +1,7 @@
 #include "sensors/sensor_hub.h"
 #include "app/log.h"
 #include "platform/win_util.h"
+#include "sensors/cpu_direct.h"
 #include "sensors/gpu_adapters.h"
 #include "sensors/lhm_select.h"
 #include "sensors/nvml_reader.h"
@@ -13,6 +14,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 
 bool SensorRequest::operator==(const SensorRequest& o) const
 {
@@ -22,7 +24,7 @@ bool SensorRequest::operator==(const SensorRequest& o) const
            cpuPower == o.cpuPower && cpuClock == o.cpuClock && cpuFan == o.cpuFan && ram == o.ram &&
            wantChoices == o.wantChoices && dumpTemps == o.dumpTemps && gpuKey == o.gpuKey && cpuTempPref == o.cpuTempPref &&
            cpuFanPref == o.cpuFanPref && intervalMs == o.intervalMs &&
-           cpuSampleStepMs == o.cpuSampleStepMs;
+           cpuSampleStepMs == o.cpuSampleStepMs && cpuMode == o.cpuMode;
 }
 
 namespace {
@@ -164,31 +166,70 @@ struct SensorHub::Impl {
     std::string cpuName;
     ULONGLONG lastPawnioCheck = 0;
 
-    // CPU readings taken between ticks; each tick shows their mean (see CpuSample).
-    int cpuHw = -1;
+    // ── CPU temperature and power ──
+    // Direct: one package register through PawnIO, read 10 times a second (cheap, wakes no core).
+    // LHM: LibreHardwareMonitor's CPU update, which moves the thread across every core, so it
+    // runs once per tick and only when the direct path cannot give the value asked for.
+    CpuDirect direct;
+    bool directTried = false;
+    ULONGLONG directRetryAt = 0;
+    enum class CpuPath { None, Direct, Lhm };
+    CpuPath tempPath = CpuPath::None;
+    int cpuHw = -1;                 // LHM hardware updated each tick, -1 = none
     int cpuTempIdx = -1, cpuPowerIdx = -1;
     double tempSum = 0, powerSum = 0;
     int tempCount = 0, powerCount = 0;
+    bool atLimit = false;
+    bool lhmSubsample = false;      // diagnostics: the 2.0.1 behaviour (LHM 4 times a second)
+    bool directPowerPrimed = false; // the energy counter was read last tick
     float cpuSampleMs = 0.f;
+    float shownTemp = kNoValue;     // display hysteresis
 
     void CpuSample()
     {
-        if (cpuHw < 0 || !lhm.open) return;
         const auto t0 = std::chrono::steady_clock::now();
-        lhm.Update(cpuHw);
+        if (tempPath == CpuPath::Direct) {
+            float t;
+            bool limit = false;
+            if (direct.ReadTemperature(t, limit)) {
+                tempSum += t;
+                ++tempCount;
+                atLimit = atLimit || limit;
+            }
+        }
+        if (cpuHw >= 0 && lhm.open) {
+            lhm.Update(cpuHw);
+            if (tempPath == CpuPath::Lhm) {
+                const float t = lhm.Value(cpuTempIdx);
+                if (t == t && t > 0.f) { tempSum += t; ++tempCount; }
+            }
+            const float w = lhm.Value(cpuPowerIdx);
+            if (w == w && w > 0.05f) { powerSum += w; ++powerCount; }    // without the driver LHM reports 0 W
+        }
         cpuSampleMs = (float)std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-        const float t = lhm.Value(cpuTempIdx);
-        if (t == t && t > 0.f) { tempSum += t; ++tempCount; }
-        const float w = lhm.Value(cpuPowerIdx);
-        if (w == w && w > 0.05f) { powerSum += w; ++powerCount; }    // without the driver LHM reports 0 W
+    }
+    // Readings between ticks: only the direct path, unless diagnostics ask for the old behaviour.
+    bool SubsampleWanted() const { return tempPath == CpuPath::Direct || (lhmSubsample && cpuHw >= 0 && lhm.open); }
+    void SubSample()
+    {
+        if (tempPath == CpuPath::Direct && !lhmSubsample) {
+            const int hw = cpuHw;
+            cpuHw = -1;             // LHM keeps its once-per-tick pace
+            CpuSample();
+            cpuHw = hw;
+        } else {
+            CpuSample();
+        }
     }
     // Mean of the readings since the last call, then starts over.
-    void TakeCpuMeans(float& temp, float& power)
+    void TakeCpuMeans(float& temp, float& power, bool& limit)
     {
         temp = tempCount ? (float)(tempSum / tempCount) : kNoValue;
         power = powerCount ? (float)(powerSum / powerCount) : kNoValue;
+        limit = atLimit;
         tempSum = powerSum = 0;
         tempCount = powerCount = 0;
+        atLimit = false;
     }
 };
 
@@ -273,6 +314,9 @@ void SensorHub::Run()
         // ── PawnIO install (blocks this thread only) ──
         if (doInstall) {
             m.lhm.Close();          // the driver cannot be replaced while LHM holds it open
+            m.direct.Close();
+            m.directRetryAt = 0;
+            m.directTried = false;
             std::string detail;
             const auto r = pawnio::RunInstaller(detail);
             pawnioResult = (r == pawnio::InstallResult::Ok) ? 1 : 2;
@@ -303,7 +347,19 @@ void SensorHub::Run()
         const bool nvidiaFast = m.nvmlDevice >= 0;
 
         // ── LibreHardwareMonitor (lazy) ──
-        const bool needLhm = req.cpuTemp || req.cpuPower || req.cpuFan || req.gpuHotspot || req.wantChoices ||
+        // ── Direct CPU reading (decided first: it can make LHM unnecessary) ──
+        if ((req.cpuTemp || req.cpuPower) && req.cpuMode == 0 && !m.direct.IsOpen() && GetTickCount64() >= m.directRetryAt) {
+            const bool first = !m.directTried;
+            m.directTried = true;
+            m.directRetryAt = GetTickCount64() + 30000;     // PawnIO may be installed outside the app later
+            std::string err;
+            if (m.direct.Open(err)) logx::Info("CPU temperature: read directly, %s", m.direct.Description().c_str());
+            else if (first) logx::Info("CPU temperature: no direct read (%s), using LibreHardwareMonitor", err.c_str());
+        }
+        const bool directOk = m.direct.IsOpen() && req.cpuMode == 0;
+        const bool needLhm = (req.cpuTemp && !(directOk && req.cpuTempPref.empty())) ||
+                             (req.cpuPower && !(directOk && m.direct.HasPower())) || req.cpuFan || req.gpuHotspot ||
+                             req.wantChoices ||
                              (!nvidiaFast && (req.gpuTemp || req.gpuPower || req.gpuClock || req.gpuMemClock || req.gpuFan));
         // Publish a first snapshot from the fast sources before paying LHM's startup cost.
         if (needLhm && !m.lhmTried && snapshot_.seq > 0) {
@@ -369,28 +425,71 @@ void SensorHub::Run()
             if (a.info.dedicatedBytes) g.vramTotalMB = (float)(a.info.dedicatedBytes / (1024.0 * 1024.0));
         }
 
+        // ── CPU temperature and power ──
+        {
+            const auto& sensors = m.lhm.Sensors();     // empty until LHM is open
+            // A preference names an LHM sensor; the package ones are what the direct path reads.
+            bool prefIsPackage = req.cpuTempPref.empty();
+            if (!prefIsPackage) {
+                for (const auto& s : sensors) {
+                    if (s.id != req.cpuTempPref) continue;
+                    prefIsPackage = s.name == "CPU Package" || s.name == "Package" || s.name == "Core (Tctl/Tdie)" ||
+                                    s.name == "Core (Tdie)";
+                    break;
+                }
+            }
+            const bool direct = m.direct.IsOpen() && req.cpuMode == 0;
+            Impl::CpuPath tempPath = Impl::CpuPath::None;
+            if (req.cpuTemp)
+                tempPath = (direct && prefIsPackage) ? Impl::CpuPath::Direct : m.lhm.open ? Impl::CpuPath::Lhm : Impl::CpuPath::None;
+            const bool directPower = req.cpuPower && direct && m.direct.HasPower();
+            const int tempIdx = tempPath == Impl::CpuPath::Lhm ? m.picks.cpuTemp : -1;
+            const int powerIdx = (req.cpuPower && !directPower && m.lhm.open) ? m.picks.cpuPower : -1;
+            int cpuHw = -1;
+            if (tempIdx >= 0) cpuHw = sensors[tempIdx].hardware;
+            else if (powerIdx >= 0) cpuHw = sensors[powerIdx].hardware;
+            if (tempPath != m.tempPath || cpuHw != m.cpuHw || tempIdx != m.cpuTempIdx || powerIdx != m.cpuPowerIdx) {
+                float dropT, dropW;
+                bool dropL;
+                m.TakeCpuMeans(dropT, dropW, dropL);   // readings from another source: discard
+                m.shownTemp = kNoValue;
+            }
+            m.tempPath = tempPath;
+            m.cpuHw = cpuHw;
+            m.cpuTempIdx = tempIdx;
+            m.cpuPowerIdx = powerIdx;
+            m.lhmSubsample = req.cpuMode == 2;
+            m.CpuSample();
+            float meanTemp, meanPower;
+            bool atLimit;
+            m.TakeCpuMeans(meanTemp, meanPower, atLimit);
+            if (directPower) {
+                // The energy counter gives the exact average over the whole tick.
+                if (!m.directPowerPrimed) m.direct.PackagePowerW();
+                meanPower = m.direct.PackagePowerW();
+            }
+            m.directPowerPrimed = directPower;
+            status.cpuTempRaw = meanTemp;
+            // The shown whole degree only moves once the reading is 0.75 °C away from it, so the
+            // last digit does not flicker between two values.
+            if (!Has(meanTemp)) m.shownTemp = kNoValue;
+            else if (!Has(m.shownTemp) || std::fabs(meanTemp - m.shownTemp) >= 0.75f) m.shownTemp = std::round(meanTemp);
+            if (req.cpuTemp) {
+                snap.cpu.temp = m.shownTemp;
+                snap.cpu.atLimit = atLimit;
+                if (tempPath == Impl::CpuPath::Direct) snap.cpu.limitC = m.direct.LimitC();
+            }
+            if (req.cpuPower) snap.cpu.power = meanPower;
+            status.cpuSampleMs = m.cpuSampleMs;
+            status.cpuTempSource = tempPath == Impl::CpuPath::Direct ? "direct, " + m.direct.Description()
+                                 : tempIdx >= 0                       ? "LibreHardwareMonitor, " + sensors[tempIdx].name
+                                                                      : std::string("none");
+        }
+
         // ── LibreHardwareMonitor readings ──
         if (m.lhm.open) {
             const auto l0 = std::chrono::steady_clock::now();
             const auto& sensors = m.lhm.Sensors();
-            int cpuHw = -1;
-            if (req.cpuTemp && m.picks.cpuTemp >= 0) cpuHw = sensors[m.picks.cpuTemp].hardware;
-            else if (req.cpuPower && m.picks.cpuPower >= 0) cpuHw = sensors[m.picks.cpuPower].hardware;
-            const int tempIdx = req.cpuTemp ? m.picks.cpuTemp : -1;
-            const int powerIdx = req.cpuPower ? m.picks.cpuPower : -1;
-            if (cpuHw != m.cpuHw || tempIdx != m.cpuTempIdx || powerIdx != m.cpuPowerIdx) {
-                float drop1, drop2;
-                m.TakeCpuMeans(drop1, drop2);   // readings of another sensor: discard
-            }
-            m.cpuHw = cpuHw;
-            m.cpuTempIdx = tempIdx;
-            m.cpuPowerIdx = powerIdx;
-            m.CpuSample();
-            float meanTemp, meanPower;
-            m.TakeCpuMeans(meanTemp, meanPower);
-            if (req.cpuTemp) snap.cpu.temp = meanTemp;
-            if (req.cpuPower) snap.cpu.power = meanPower;
-            status.cpuSampleMs = cpuHw >= 0 ? m.cpuSampleMs : 0.f;
             if (req.cpuFan && m.picks.cpuFan >= 0) {
                 m.lhm.Update(sensors[m.picks.cpuFan].hardware);
                 snap.cpu.fanRpm = m.lhm.Value(m.picks.cpuFan);
@@ -491,18 +590,18 @@ void SensorHub::Run()
         const auto wake = [this] { return !running_ || requestChanged_ || installPawnIo_; };
         const auto until = tickStart + std::chrono::milliseconds(waitMs);
         // A CPU's temperature jumps several degrees from one moment to the next, because boost
-        // bursts last milliseconds. Reading it four times a second and showing the mean gives
+        // bursts last milliseconds. Reading it 10 times a second and showing the mean gives
         // the real temperature over the interval, not one random moment of it.
         bool woken = false;
         const std::chrono::milliseconds step(req.cpuSampleStepMs);
-        if (m.cpuHw >= 0 && m.lhm.open && step.count() > 0) {
+        if (m.SubsampleWanted() && step.count() > 0) {
             for (auto next = tickStart + step; next + step / 2 < until; next += step) {
                 if (cv_.wait_until(lock, next, wake)) {
                     woken = true;
                     break;
                 }
                 lock.unlock();
-                m.CpuSample();
+                m.SubSample();
                 lock.lock();
             }
         }

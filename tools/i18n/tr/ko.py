@@ -186,10 +186,8 @@ T = {
 "Cyan": "시안",
 "Silver": "은색",
 "Package": "Package",
-"The temperature the CPU itself reports. Best for spotting overheating.": "CPU가 직접 보고하는 온도입니다. 과열을 확인하기에 가장 좋습니다.",
 "Hottest core": "가장 뜨거운 코어",
 "Average of all cores": "모든 코어의 평균",
-"Lower and steadier than Package.": "Package보다 낮고 안정적입니다.",
 "Control temperature": "제어 온도",
 "Includes a fan-control offset, so it reads higher than the real temperature.": "팬 제어용 오프셋이 포함되어 실제 온도보다 높게 표시됩니다.",
 "Package is the CPU's own reading. Average of all cores is lower and steadier.": "Package는 CPU 자체의 측정값입니다. 모든 코어의 평균은 더 낮고 안정적입니다.",
@@ -204,4 +202,6 @@ T = {
 "Install updates automatically": "업데이트 자동 설치",
 "Downloads new versions from GitHub, checks them and installs them when no game is running.": "GitHub에서 새 버전을 내려받아 확인한 뒤, 게임이 실행 중이지 않을 때 설치합니다.",
 "Updated to version %s": "버전 %s(으)로 업데이트되었습니다",
+"The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "CPU 자체의 측정값으로, HWiNFO, Corsair iCUE, NZXT CAM이 기본으로 보여 주는 값입니다.",
+"Lower than Package. NZXT CAM's Average setting shows this one.": "Package보다 낮습니다. NZXT CAM의 Average 설정이 이 값을 보여 줍니다.",
 }

@@ -28,6 +28,8 @@ struct CpuReadings {
     float power = kNoValue;         // W
     float clock = kNoValue;         // MHz, effective
     float fanRpm = kNoValue;
+    bool  atLimit = false;          // at its thermal limit (throttling) during the last interval
+    float limitC = kNoValue;        // throttle temperature when known (Intel TjMax, AMD 95)
 };
 
 struct MemReadings {
@@ -59,7 +61,9 @@ struct SensorStatus {
     std::string pawnioMessage;      // failure detail (English)
     bool cpuTempAvailable = false;
     float lhmUpdateMs = 0.f;        // cost of the last LibreHardwareMonitor update
-    float cpuSampleMs = 0.f;        // cost of one CPU reading (taken 4 times a second)
+    float cpuSampleMs = 0.f;        // cost of one CPU reading
+    float cpuTempRaw = kNoValue;    // mean before display rounding (diagnostics)
+    std::string cpuTempSource;      // where the CPU temperature came from (diagnostics)
     float tickMs = 0.f;             // cost of the last full sensor tick
 };
 

@@ -34,6 +34,7 @@ copy /y build\Release\FPSOverlay.Sensors.dll "%OUT%\" >nul
 copy /y build\Release\lhwm-wrapper.dll "%OUT%\" >nul
 copy /y LICENSE.txt "%OUT%\" >nul
 copy /y NOTICE.md "%OUT%\" >nul
+copy /y libs\pawnio\COPYING.txt "%OUT%\LICENSE-PawnIO-modules.txt" >nul
 copy /y locales\*.json "%OUT%\locales\" >nul
 powershell -NoProfile -Command "Compress-Archive -Path 'dist\FPSOverlay' -DestinationPath 'dist\FPSOverlay.zip' -Force" || goto :failed
 

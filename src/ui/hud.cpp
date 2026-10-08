@@ -624,7 +624,11 @@ void Hud::BuildFrame(const cfg::Config& c, const HudFrameInfo& frames, const Sen
         };
         if (part != 2) {
             put(on(cfg::Metric::CpuLoad), nullptr, cpu.load, "%.0f", "%", Grade(st, cpu.load, 90.f, 98.f), "100");
-            put(on(cfg::Metric::CpuTemp), nullptr, TempValue(st, cpu.temp), "%.0f", TempUnit(st), Grade(st, cpu.temp, 85.f, 95.f), "88");
+            // Colours follow the CPU's own throttle point (Intel TjMax, AMD 95 °C); red while the
+            // CPU reports that it is at that limit.
+            const float limit = Has(cpu.limitC) ? cpu.limitC : 100.f;
+            const ImVec4 tempColor = (cpu.atLimit && st.colorize) ? theme::kBad : Grade(st, cpu.temp, limit - 15.f, limit - 5.f);
+            put(on(cfg::Metric::CpuTemp), nullptr, TempValue(st, cpu.temp), "%.0f", TempUnit(st), tempColor, "88");
             put(on(cfg::Metric::CpuPower), nullptr, cpu.power, "%.0f", "W", st.value, "888");
         }
         if (part != 1) {

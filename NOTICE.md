@@ -19,3 +19,6 @@ started as that modified version.
 - LibreHardwareMonitor 0.9.6 and its dependencies, bundled in lhwm-wrapper.dll —
   Mozilla Public License 2.0. Source: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
 - PawnIO driver installer (libs/lhwm/PawnIO_setup.exe) — see https://pawnio.eu/ for its license.
+- PawnIO.Modules 0.1.6: the signed IntelMSR.bin and AMDFamily17.bin modules (libs/pawnio, embedded
+  in FPSOverlay.exe) — GNU Lesser General Public License 2.1 or later (LICENSE-PawnIO-modules.txt).
+  Source: https://github.com/namazso/PawnIO.Modules/releases/tag/0.1.6

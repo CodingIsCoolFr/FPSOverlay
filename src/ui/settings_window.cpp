@@ -640,12 +640,12 @@ void SettingsWindow::PageSensors(const UiStatus& status, const SensorSnapshot& s
             std::string name = lhmName;
             if (lhmName == "CPU Package" || lhmName == "Package" || lhmName == "Core (Tctl/Tdie)" || lhmName == "Core (Tdie)") {
                 name = T("Package");
-                d = T("The temperature the CPU itself reports. Best for spotting overheating.");
+                d = T("The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.");
             } else if (lhmName == "Core Max") {
                 name = T("Hottest core");
             } else if (lhmName == "Core Average") {
                 name = T("Average of all cores");
-                d = T("Lower and steadier than Package.");
+                d = T("Lower than Package. NZXT CAM's Average setting shows this one.");
             } else if (lhmName == "Core (Tctl)") {
                 name = T("Control temperature");
                 d = T("Includes a fan-control offset, so it reads higher than the real temperature.");

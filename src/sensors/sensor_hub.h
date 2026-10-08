@@ -23,7 +23,8 @@ struct SensorRequest {
     std::string cpuTempPref;
     std::string cpuFanPref;
     int intervalMs = 1000;
-    int cpuSampleStepMs = 250;      // extra CPU temperature/power readings between ticks (0 = none)
+    int cpuSampleStepMs = 100;      // extra CPU temperature readings between ticks (0 = none)
+    int cpuMode = 0;                // 0 direct when possible, 1 LibreHardwareMonitor only, 2 LHM 4x/s (diagnostics)
 
     bool operator==(const SensorRequest& o) const;
 };

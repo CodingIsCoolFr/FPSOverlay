@@ -325,8 +325,8 @@ int Probe(int seconds)
 {
     SensorHub hub;
     SensorRequest r;
-    r.gpuHotspot = r.gpuPower = r.gpuClock = r.gpuMemClock = r.gpuFan = true;
-    r.cpuPower = r.cpuClock = r.cpuFan = true;
+    r.gpuPower = r.gpuClock = r.gpuMemClock = true;     // NVML / counters only: no LHM GPU updates in the way
+    r.cpuPower = r.cpuClock = true;
     r.wantChoices = true;
     r.intervalMs = 1000;    // the app's default
     hub.Start(r);
@@ -336,33 +336,55 @@ int Probe(int seconds)
         auto s = [](const FILETIME& f) { return (((ULONGLONG)f.dwHighDateTime << 32) | f.dwLowDateTime) / 1e7; };
         return s(k) + s(u);
     };
-    Sleep(2000);    // skip the LibreHardwareMonitor start-up
+    Sleep(2500);    // skip the LibreHardwareMonitor start-up
 
-    // Two halves: the app's CPU sampling, then one reading per tick, to compare cost and steadiness.
-    const int steps[2] = { r.cpuSampleStepMs, 0 };
-    for (int phase = 0; phase < 2; ++phase) {
-        r.cpuSampleStepMs = steps[phase];
+    // How the CPU is read changes what it measures: compare the three ways, in a symmetric order
+    // so a slow drift in load or room temperature cancels out.
+    struct Phase { int mode; const char* name; };
+    const Phase phases[] = {
+        { 0, "direct package register, 10 per second" },
+        { 2, "LibreHardwareMonitor, 4 per second (2.0.1-2.0.2)" },
+        { 1, "LibreHardwareMonitor, 1 per second (2.0.0)" },
+        { 0, "direct package register, 10 per second" },
+    };
+    const int perPhase = std::max(3, seconds / 4);
+    for (const Phase& ph : phases) {
+        r.cpuMode = ph.mode;
+        r.cpuSampleStepMs = ph.mode == 2 ? 250 : 100;
         hub.SetRequest(r);
-        if (phase) Sleep(1500);
-        Out("-- CPU readings %s --\n", steps[phase] ? "4 per second, mean shown" : "1 per second");
+        Sleep(2000);    // let the new mode settle
+        Out("-- %s --\n", ph.name);
         const double cpu0 = cpuSeconds();
         const ULONGLONG wall0 = GetTickCount64();
         float tMin = 1e9f, tMax = -1e9f;
-        for (int i = 0; i < std::max(1, seconds / 2); ++i) {
+        double tSum = 0, wSum = 0, loadSum = 0;
+        int tN = 0, wN = 0, loadN = 0;
+        std::string source;
+        for (int i = 0; i < perPhase; ++i) {
             Sleep(1000);
             const SensorSnapshot s = hub.Snapshot();
-            if (s.cpu.temp == s.cpu.temp) {
-                tMin = std::min(tMin, s.cpu.temp);
-                tMax = std::max(tMax, s.cpu.temp);
+            const float t = s.status.cpuTempRaw;
+            if (t == t) {
+                tMin = std::min(tMin, t);
+                tMax = std::max(tMax, t);
+                tSum += t;
+                ++tN;
             }
-            Out("[%d] tick %.1f ms, cpu read %.1f ms | GPU load %.0f temp %.0f hot %.1f power %.0f clk %.0f vram %.0f/%.0f | CPU load %.0f temp %.1f power %.1f clk %.0f | RAM %.1f/%.1f | lhm=%d nvml=%d pdh=%d\n",
-                i, s.status.tickMs, s.status.cpuSampleMs, s.gpu.load, s.gpu.temp, s.gpu.hotspot, s.gpu.power, s.gpu.coreClock,
-                s.gpu.vramUsedMB, s.gpu.vramTotalMB, s.cpu.load, s.cpu.temp, s.cpu.power, s.cpu.clock, s.ram.usedGB,
-                s.ram.totalGB, (int)s.status.lhm, (int)s.status.nvml, (int)s.status.pdh);
+            if (s.cpu.power == s.cpu.power) { wSum += s.cpu.power; ++wN; }
+            if (s.cpu.load == s.cpu.load) { loadSum += s.cpu.load; ++loadN; }
+            source = s.status.cpuTempSource;
+            Out("[%d] CPU %.1f C (shown %.0f%s) | %.1f W | load %.1f%% | clock %.0f MHz | read %.1f ms | GPU %.0f%% %.0f C %.1f W "
+                "%.0f/%.0f MHz VRAM %.0f/%.0f MB | RAM %.2f/%.2f GB\n",
+                i, t, s.cpu.temp, s.cpu.atLimit ? ", AT LIMIT" : "", s.cpu.power, s.cpu.load, s.cpu.clock, s.status.cpuSampleMs,
+                s.gpu.load, s.gpu.temp, s.gpu.power, s.gpu.coreClock, s.gpu.memClock, s.gpu.vramUsedMB, s.gpu.vramTotalMB,
+                s.ram.usedGB, s.ram.totalGB);
         }
-        Out("Sensor CPU use: %.2f%% of one core\n", 100.0 * (cpuSeconds() - cpu0) / ((GetTickCount64() - wall0) / 1000.0));
-        if (tMax >= tMin) Out("CPU temperature shown: %.1f to %.1f C\n", tMin, tMax);
+        Out("   source: %s\n", source.c_str());
+        Out("   temperature mean %.2f C, range %.1f..%.1f | package power mean %.2f W | CPU load mean %.1f%% | app CPU use %.2f%% of one core\n",
+            tN ? tSum / tN : 0.0, tN ? tMin : 0.f, tN ? tMax : 0.f, wN ? wSum / wN : 0.0, loadN ? loadSum / loadN : 0.0,
+            100.0 * (cpuSeconds() - cpu0) / ((GetTickCount64() - wall0) / 1000.0));
     }
+    r.cpuMode = 0;
     r.dumpTemps = true;
     hub.SetRequest(r);
     Sleep(1500);

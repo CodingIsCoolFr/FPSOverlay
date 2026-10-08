@@ -186,10 +186,8 @@ T = {
 "Cyan": "Cyjan",
 "Silver": "Srebrny",
 "Package": "Package",
-"The temperature the CPU itself reports. Best for spotting overheating.": "Temperatura podawana przez sam procesor. Najlepsza do wykrywania przegrzania.",
 "Hottest core": "Najgorętszy rdzeń",
 "Average of all cores": "Średnia wszystkich rdzeni",
-"Lower and steadier than Package.": "Niższa i stabilniejsza niż Package.",
 "Control temperature": "Temperatura sterująca",
 "Includes a fan-control offset, so it reads higher than the real temperature.": "Zawiera przesunięcie dla sterowania wentylatorami, więc jest wyższa niż rzeczywista temperatura.",
 "Package is the CPU's own reading. Average of all cores is lower and steadier.": "Package to odczyt samego procesora. Średnia wszystkich rdzeni jest niższa i stabilniejsza.",
@@ -204,4 +202,6 @@ T = {
 "Install updates automatically": "Instaluj aktualizacje automatycznie",
 "Downloads new versions from GitHub, checks them and installs them when no game is running.": "Pobiera nowe wersje z GitHuba, sprawdza je i instaluje, gdy żadna gra nie jest uruchomiona.",
 "Updated to version %s": "Zaktualizowano do wersji %s",
+"The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "Odczyt samego procesora, który domyślnie pokazują HWiNFO, Corsair iCUE i NZXT CAM.",
+"Lower than Package. NZXT CAM's Average setting shows this one.": "Niższa niż Package. Ustawienie Average w NZXT CAM pokazuje właśnie ją.",
 }

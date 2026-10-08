@@ -186,10 +186,8 @@ T = {
 "Cyan": "فیروزه‌ای",
 "Silver": "نقره‌ای",
 "Package": "Package",
-"The temperature the CPU itself reports. Best for spotting overheating.": "دمایی که خود پردازنده گزارش می‌دهد. بهترین گزینه برای دیدن داغ شدن بیش از حد.",
 "Hottest core": "داغ‌ترین هسته",
 "Average of all cores": "میانگین همه هسته‌ها",
-"Lower and steadier than Package.": "پایین‌تر و پایدارتر از Package.",
 "Control temperature": "دمای کنترلی",
 "Includes a fan-control offset, so it reads higher than the real temperature.": "شامل یک جابه‌جایی برای کنترل فن است، پس بالاتر از دمای واقعی نشان می‌دهد.",
 "Package is the CPU's own reading. Average of all cores is lower and steadier.": "Package خوانش خود پردازنده است. میانگین همه هسته‌ها پایین‌تر و پایدارتر است.",
@@ -204,4 +202,6 @@ T = {
 "Install updates automatically": "نصب خودکار به‌روزرسانی‌ها",
 "Downloads new versions from GitHub, checks them and installs them when no game is running.": "نسخه‌های جدید را از GitHub دانلود می‌کند، بررسی می‌کند و وقتی هیچ بازی‌ای اجرا نیست نصب می‌کند.",
 "Updated to version %s": "به نسخه %s به‌روزرسانی شد",
+"The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "خوانش خود پردازنده؛ HWiNFO، Corsair iCUE و NZXT CAM به‌طور پیش‌فرض همین را نشان می‌دهند.",
+"Lower than Package. NZXT CAM's Average setting shows this one.": "پایین‌تر از Package. تنظیم Average در NZXT CAM همین را نشان می‌دهد.",
 }

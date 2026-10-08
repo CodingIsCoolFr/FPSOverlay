@@ -192,10 +192,15 @@ flowchart LR
 - **Sensors.** Each value comes from the fastest source that has it. LibreHardwareMonitor is only
   used for what nothing else gives (CPU temperature, CPU power, motherboard fans), and only the
   hardware on screen is updated.
-- **CPU temperature.** A modern CPU's temperature jumps several degrees from one moment to the
-  next. The app reads it four times a second and shows the mean, so the number is the real
-  temperature over that second, not one random moment of it. On Ryzen chips that add a
-  fan-control offset (Tctl), the real die temperature (Tdie) is used.
+- **CPU temperature.** The app reads the CPU's own package sensor straight through the PawnIO
+  driver: one register (`IA32_PACKAGE_THERM_STATUS` on Intel, `THM_TCON_CUR_TMP` on Ryzen) on
+  whatever core the sensor thread is on. Sensor libraries instead hop onto every core to read
+  per-core registers, which wakes idle cores; one direct read takes under 0.1 ms instead of
+  about 40 ms. Because a CPU's temperature jumps several degrees from one moment to the next,
+  the app reads it 10 times a second and shows the mean, and the shown whole degree only
+  changes once the reading has moved 0.75 °C, so the last digit does not flicker. The number
+  turns red when the CPU reports that it is at its thermal limit. On Ryzen chips that add a
+  fan-control offset (Tctl), the real die temperature (Tdie) is shown.
 - **Overlay.** A per-pixel transparent window, exactly the size of its content. It ignores the
   mouse until you hold <kbd>Ctrl</kbd>, and can be hidden from screen recordings.
 
@@ -204,9 +209,11 @@ flowchart LR
 | Test | Result |
 |---|---|
 | FPS self-test: Direct3D 11 and OpenGL windows at 60, 100, 144 and 237 FPS | Within **0.01 FPS** of the target |
-| CPU use of the sensor thread, every sensor on | **1.9% of one core** |
+| One CPU temperature reading | **under 0.1 ms** direct, against about 40 ms through LibreHardwareMonitor |
+| Sensor thread CPU use for CPU temperature and power | **0.0–0.1% of one core**, against 0.9% before |
 | CPU temperature over 15 s at the same load | **65–70 °C** averaged, against 63–76 °C from single readings |
-| Unit tests | **80 checks**, all pass |
+| Readings against `nvidia-smi`, Windows counters and WMI | GPU temperature within 0.1 °C, GPU power within 0.1 W, VRAM within 2 MB, RAM exact |
+| Unit tests | **87 checks**, all pass |
 
 ## Building from source
 
@@ -286,10 +293,12 @@ other window, this overlay included.
 <details>
 <summary><b>Why does another app show a different CPU temperature?</b></summary>
 
-Apps pick different CPU readings. FPS Overlay shows **Package**, the temperature the CPU itself
-reports, as HWiNFO and Intel's and AMD's own tools do. Some apps, like NZXT CAM, can show the
-**average of all cores**, which is lower. To match them, pick *Average of all cores* under
-*Settings → Sensors → Temperature sensor*.
+Apps can show two different CPU readings. FPS Overlay shows **Package** (on Ryzen,
+**Tctl/Tdie**): the temperature the CPU itself reports and throttles on. HWiNFO recommends it,
+Corsair iCUE uses it, and NZXT CAM shows it by default. NZXT CAM also has an *Average* setting
+(Settings → General → CPU Temperature Display), which averages all cores and reads 10–15 °C
+lower on a busy hybrid Intel CPU. To match that, pick *Average of all cores* under
+*Settings → Sensors → Temperature sensor*, or set CAM back to *Package*.
 </details>
 
 <details>
@@ -314,6 +323,7 @@ off under *Settings → General*; the *About* page then only tells you that an u
 | [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) 0.9.6, bundled in `lhwm-wrapper.dll` | MPL 2.0 |
 | [RTLScript](https://github.com/oscar7070/RTLScript), a fork of FarsiType | MIT |
 | [PawnIO](https://pawnio.eu/) driver installer | see its project page |
+| [PawnIO.Modules](https://github.com/namazso/PawnIO.Modules/releases/tag/0.1.6) 0.1.6 (`IntelMSR.bin`, `AMDFamily17.bin`, embedded in the exe) | LGPL 2.1 or later |
 
 Segoe UI and Segoe Fluent Icons are loaded from Windows at run time and are not redistributed.
 

@@ -186,10 +186,8 @@ T = {
 "Cyan": "青色",
 "Silver": "银色",
 "Package": "Package",
-"The temperature the CPU itself reports. Best for spotting overheating.": "CPU 自己报告的温度。最适合发现过热。",
 "Hottest core": "最热的核心",
 "Average of all cores": "所有核心的平均值",
-"Lower and steadier than Package.": "比 Package 更低、更稳定。",
 "Control temperature": "控制温度",
 "Includes a fan-control offset, so it reads higher than the real temperature.": "包含用于风扇控制的偏移量，因此高于实际温度。",
 "Package is the CPU's own reading. Average of all cores is lower and steadier.": "Package 是 CPU 自身的读数。所有核心的平均值更低、更稳定。",
@@ -204,4 +202,6 @@ T = {
 "Install updates automatically": "自动安装更新",
 "Downloads new versions from GitHub, checks them and installs them when no game is running.": "从 GitHub 下载新版本，校验后在没有游戏运行时安装。",
 "Updated to version %s": "已更新到版本 %s",
+"The CPU's own reading, which HWiNFO, Corsair iCUE and NZXT CAM show by default.": "CPU 自身的读数，HWiNFO、Corsair iCUE 和 NZXT CAM 默认显示这个值。",
+"Lower than Package. NZXT CAM's Average setting shows this one.": "比 Package 低。NZXT CAM 的 Average 设置显示的就是这个值。",
 }

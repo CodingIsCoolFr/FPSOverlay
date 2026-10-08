@@ -5,6 +5,7 @@
 #include "app/ini.h"
 #include "app/updater.h"
 #include "capture/frame_stats.h"
+#include "sensors/cpu_direct.h"
 #include "sensors/lhm_select.h"
 
 #include <windows.h>
@@ -272,9 +273,33 @@ static void TestReleaseJson()
     CHECK(!updater::ParseRelease(R"({"tag_name": "v1", "assets": [)", "FPSOverlay.zip", r));
 }
 
+// ── CPU temperature registers ───────────────────────────────────────────────
+
+static void TestCpuTempDecode()
+{
+    float c = 0.f;
+    bool limit = true;
+    // Intel: 32 °C below TjMax 100, valid, not at the limit.
+    CHECK(cputemp::DecodeIntel((1ull << 31) | (32ull << 16), 100, c, limit) && c == 68.f && !limit);
+    // At the limit: readout 0, status bit set.
+    CHECK(cputemp::DecodeIntel((1ull << 31) | 1ull, 100, c, limit) && c == 100.f && limit);
+    // Bit 31 clear: not a valid reading.
+    CHECK(!cputemp::DecodeIntel(32ull << 16, 100, c, limit));
+
+    // AMD: 68 °C is 544 eighths.
+    CHECK(cputemp::DecodeAmd(544u << 21, 0.f) == 68.f);
+    // RANGE_SEL: the register holds Tctl + 49.
+    CHECK(cputemp::DecodeAmd((936u << 21) | 0x80000u, 0.f) == 68.f);
+    // TJ_SEL == 3 means the same (LibreHardwareMonitor 0.9.6 misses this case and reads 49 °C high).
+    CHECK(cputemp::DecodeAmd((936u << 21) | 0x30000u, 0.f) == 68.f);
+    // Ryzen 7 1800X: Tctl 88 with its +20 °C offset is a real 68 °C.
+    CHECK(cputemp::DecodeAmd(704u << 21, 20.f) == 68.f);
+}
+
 int main()
 {
     TestVersions();
+    TestCpuTempDecode();
     TestReleaseJson();
     TestIni();
     TestConfig();
