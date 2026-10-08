@@ -266,31 +266,48 @@ void App::Frame(bool settingsVblank)
 
 // "Hide when no game is running": a game is drawing and nothing else is in front of it on the
 // HUD's monitor. Loading screens and quick focus changes do not make the HUD blink.
+// "Hide when no game is running" (see GameVisibility for the rule). This only gathers what it
+// needs to know about the windows on screen.
 bool App::GameShown(ULONGLONG now, const FrameCapture::Result& fr)
 {
-    const bool drawing = fr.secondsSinceLastFrame < (gameShown_ ? 3.0 : 0.5);
-    if (tracker_.IsGame() && drawing && GameInFront()) {
-        gameShown_ = true;
-        gameSeenAt_ = now;
-    } else if (gameShown_ && now - gameSeenAt_ > 400) {
-        gameShown_ = false;
-    }
-    return gameShown_;
-}
-
-bool App::GameInFront()
-{
-    HWND fg = GetForegroundWindow();
-    if (!fg) return true;                               // focus is moving (alt-tab)
-    DWORD owner = 0;
-    GetWindowThreadProcessId(fg, &owner);
-    if (owner == GetCurrentProcessId()) return true;    // settings, menus, a Ctrl-drag of the HUD
-    if (TargetTracker::ForegroundPid() == tracker_.Pid()) return true;
-    // Another app is in front. It only covers the game when it is on the game's monitor:
-    // Discord or a browser on a second screen leaves the game, and the HUD, alone.
+    GameVisibility::Inputs in;
+    in.target = tracker_.Pid();
+    in.isGame = tracker_.IsGame();
+    in.secondsSinceFrame = fr.secondsSinceLastFrame;
     HWND game = tracker_.Window();
-    const HMONITOR gameMon = game ? MonitorFromWindow(game, MONITOR_DEFAULTTONULL) : hud_.Monitor(cfg_);
-    return MonitorFromWindow(fg, MONITOR_DEFAULTTONULL) != gameMon;
+    in.minimized = game && IsIconic(game);
+
+    HWND fg = GetForegroundWindow();
+    DWORD owner = 0;
+    if (fg) GetWindowThreadProcessId(fg, &owner);
+    if (!fg) {
+        in.front = GameVisibility::Front::Moving;
+    } else if (owner == GetCurrentProcessId()) {
+        in.front = GameVisibility::Front::Ours;
+    } else if (in.target && TargetTracker::ForegroundPid() == in.target) {
+        in.front = GameVisibility::Front::Game;
+    } else {
+        const HMONITOR gameMon = game ? MonitorFromWindow(game, MONITOR_DEFAULTTONULL) : hud_.Monitor(cfg_);
+        in.front = MonitorFromWindow(fg, MONITOR_DEFAULTTONULL) == gameMon ? GameVisibility::Front::GameScreen
+                                                                           : GameVisibility::Front::OtherScreen;
+    }
+    const bool shown = gameVis_.Update(in, now);
+
+    // One line whenever an input or the result changes, so "it never shows up" can be read
+    // straight from FPSOverlay.log.
+    const int state = (in.isGame ? 1 : 0) | (gameVis_.Drawing() ? 2 : 0) | (in.minimized ? 4 : 0) |
+                      (gameVis_.AltTabbedOut() ? 8 : 0) | (shown ? 16 : 0);
+    if (state != gameLogState_ || in.target != gameLogPid_) {
+        gameLogState_ = state;
+        gameLogPid_ = in.target;
+        win::ProcessInfo fgi;
+        win::QueryProcessInfo(owner, fgi);
+        logx::Info("Game check: target %s (game %d, drawing %d, minimized %d, alt-tabbed out %d), in front %s -> overlay %s",
+                   tracker_.ExeName().empty() ? "none" : tracker_.ExeName().c_str(), (int)in.isGame,
+                   (int)gameVis_.Drawing(), (int)in.minimized, (int)gameVis_.AltTabbedOut(),
+                   fgi.exe.empty() ? "?" : fgi.exe.c_str(), shown ? "shown" : "hidden");
+    }
+    return shown;
 }
 
 SensorRequest App::BuildSensorRequest() const

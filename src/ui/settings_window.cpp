@@ -684,7 +684,7 @@ void SettingsWindow::PageAppearance(const SensorSnapshot&)
 
     ui::BeginCard("##behaviour", T("Behavior"));
     ui::ToggleRow(T("Hide when no game is running"), &cfg_->hideWhenIdle,
-                  T("The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open."));
+                  T("Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open."));
     ui::ToggleRow(T("Hide from screenshots and recordings"), &cfg_->hideFromCapture,
                   T("OBS, Discord streams and screenshots will not show the overlay. You still see it."));
     ui::EndCard();

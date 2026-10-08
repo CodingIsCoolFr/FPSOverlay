@@ -2,6 +2,7 @@
 #pragma once
 
 #include "app/config.h"
+#include "app/game_visibility.h"
 #include "capture/frame_capture.h"
 #include "capture/target_tracker.h"
 #include "render/d3d.h"
@@ -35,7 +36,6 @@ private:
     void SaveNow();
     SensorRequest BuildSensorRequest() const;
     bool GameShown(ULONGLONG now, const FrameCapture::Result& frames);
-    bool GameInFront();
     void HandleUiActions(const UiActions& a);
     void RefreshAutostartAsync();
 
@@ -71,8 +71,9 @@ private:
     bool elevated_ = false;
     ULONGLONG saveDue_ = 0;
     ULONGLONG lastTargetUpdate_ = 0;
-    bool gameShown_ = false;        // "Hide when no game is running" currently shows the HUD
-    ULONGLONG gameSeenAt_ = 0;      // last tick a game was drawing in front
+    GameVisibility gameVis_;        // "Hide when no game is running"
+    int gameLogState_ = -1;         // last logged inputs of that decision
+    DWORD gameLogPid_ = 0;
     bool hotkeyDown_[(int)cfg::HotkeyAction::Count] = {};
     std::vector<float> graph_;
     FrameCapture::Result frames_;

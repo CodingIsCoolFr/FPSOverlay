@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "برچسب‌های FPS، GPU، CPU و RAM.",
       "Behavior": "رفتار",
       "Hide when no game is running": "پنهان کردن وقتی بازی اجرا نیست",
-      "The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "لایه فقط وقتی نمایش داده می‌شود که یک بازی در جلو باشد. اگر دربارهٔ برنامه‌ای اشتباه کرد، وقتی آن برنامه باز است روی نماد سینی سیستم راست‌کلیک کنید.",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "تا وقتی بازی در حال اجراست نمایش داده می‌شود. وقتی با Alt+Tab از بازی خارج شوید یا آن را کوچک کنید پنهان می‌شود. اگر دربارهٔ برنامه‌ای اشتباه کرد، وقتی آن برنامه باز است روی نماد سینی سیستم راست‌کلیک کنید.",
       "Hide from screenshots and recordings": "پنهان کردن از عکس صفحه و ضبط",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS، پخش زندهٔ Discord و عکس‌های صفحه لایه را نشان نمی‌دهند. خودتان همچنان آن را می‌بینید.",
       "Where the numbers come from, and how often they update.": "اعداد از کجا می‌آیند و هر چند وقت به‌روز می‌شوند.",

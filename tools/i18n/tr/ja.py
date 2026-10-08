@@ -207,5 +207,5 @@ T = {
 "Support": "支援する",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay は無料で、一人で開発しています。役に立ったら、Ko-fi でコーヒーを一杯おごってもらえると開発を続ける力になります。支援は任意で、機能が制限されることはありません。",
 "Count %s as a game": "%s をゲームとして扱う",
-"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "オーバーレイはゲームが前面にあるときだけ表示されます。アプリの判定が間違っている場合は、そのアプリを開いたままタスクトレイのアイコンを右クリックしてください。",
+"Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "ゲームの実行中に表示されます。Alt+Tab でゲームから切り替えたときや、ゲームを最小化したときは隠れます。アプリの判定が間違っている場合は、そのアプリを開いたままタスクトレイのアイコンを右クリックしてください。",
 }

@@ -2,6 +2,7 @@
 // sensor selection. Plain asserts, no framework; exit code = number of failures.
 
 #include "app/config.h"
+#include "app/game_visibility.h"
 #include "app/ini.h"
 #include "app/updater.h"
 #include "capture/frame_stats.h"
@@ -146,6 +147,83 @@ static void TestGameDetect()
     CHECK(classify(L"C:\\Tools\\CrashDetective.exe", "CrashDetective.exe", mine) == Verdict::Game);
     CHECK(classify(L"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "chrome.exe", mine) == Verdict::Game);
     CHECK(classify(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\VRChat\\VRChat.exe", "VRChat.exe", mine) == Verdict::NotGame);
+}
+
+// ── "Hide when no game is running" ──────────────────────────────────────────
+
+static void TestGameVisibility()
+{
+    using F = GameVisibility::Front;
+    GameVisibility v;
+    uint64_t t = 0;
+    GameVisibility::Inputs in;
+    in.target = 100;
+    in.isGame = true;
+    in.secondsSinceFrame = 0.01;
+    auto step = [&](F front, uint64_t ms = 100) {
+        in.front = front;
+        t += ms;
+        return v.Update(in, t);
+    };
+
+    // The user's case: the game runs behind a video and never had focus. Not alt-tabbed out of,
+    // so the HUD shows.
+    CHECK(step(F::GameScreen));
+    CHECK(step(F::OtherScreen));
+
+    // Playing, then alt-tab to an app on the game's screen: hidden after the 0.4 s grace.
+    CHECK(step(F::Game));
+    CHECK(step(F::GameScreen));         // still inside the grace period
+    CHECK(!step(F::GameScreen, 500));
+    CHECK(v.AltTabbedOut());
+    CHECK(!step(F::OtherScreen));       // moving on to the other screen does not bring it back
+    // Back to the game: shown at once.
+    CHECK(step(F::Game));
+    CHECK(!v.AltTabbedOut());
+
+    // An app on the other screen (Discord), the settings window, or focus in motion: still shown.
+    CHECK(step(F::OtherScreen, 1000));
+    CHECK(step(F::Ours, 1000));
+    CHECK(step(F::Moving, 1000));
+    // After that, clicking an app on the game's screen still counts as leaving it.
+    step(F::GameScreen);
+    CHECK(!step(F::GameScreen, 500));
+    CHECK(step(F::Game));
+
+    // Minimized: hidden; restored: shown.
+    in.minimized = true;
+    step(F::OtherScreen);
+    CHECK(!step(F::OtherScreen, 500));
+    in.minimized = false;
+    CHECK(step(F::Game));
+
+    // A loading screen: no frames for 2 s keeps the HUD, 3 s and more hides it.
+    in.secondsSinceFrame = 2.0;
+    CHECK(step(F::Game, 1000));
+    in.secondsSinceFrame = 3.5;
+    step(F::Game);
+    CHECK(!step(F::Game, 500));
+    // Coming back needs a recent frame, not just a stale one.
+    in.secondsSinceFrame = 0.8;
+    CHECK(!step(F::Game));
+    in.secondsSinceFrame = 0.02;
+    CHECK(step(F::Game));
+
+    // Not a game, or nothing measured: never shown.
+    in.isGame = false;
+    step(F::Game);
+    CHECK(!step(F::Game, 500));
+    in.isGame = true;
+    in.target = 0;
+    CHECK(!step(F::Game, 500));
+
+    // A new target starts clean: being alt-tabbed out of the old game does not carry over.
+    in.target = 100;
+    step(F::Game);
+    step(F::GameScreen);
+    CHECK(!step(F::GameScreen, 500));
+    in.target = 200;
+    CHECK(step(F::GameScreen));
 }
 
 // ── Frame statistics ────────────────────────────────────────────────────────
@@ -359,6 +437,7 @@ int main()
     TestIni();
     TestConfig();
     TestGameDetect();
+    TestGameVisibility();
     TestFrameStats();
     TestLhmSelect();
     printf("%d checks, %d failures\n", g_checks, g_failures);

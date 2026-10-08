@@ -97,6 +97,7 @@
     <ClCompile Include="src\app\app.cpp" />
     <ClCompile Include="src\app\config.cpp" />
     <ClCompile Include="src\app\devtools.cpp" />
+    <ClCompile Include="src\app\game_visibility.cpp" />
     <ClCompile Include="src\app\ini.cpp" />
     <ClCompile Include="src\app\log.cpp" />
     <ClCompile Include="src\app\release_info.cpp" />
@@ -140,6 +141,7 @@
     <ClInclude Include="src\app\app.h" />
     <ClInclude Include="src\app\config.h" />
     <ClInclude Include="src\app\devtools.h" />
+    <ClInclude Include="src\app\game_visibility.h" />
     <ClInclude Include="src\app\ini.h" />
     <ClInclude Include="src\app\log.h" />
     <ClInclude Include="src\app\updater.h" />

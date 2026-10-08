@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "FPS、GPU、CPU 和 RAM 标签。",
       "Behavior": "行为",
       "Hide when no game is running": "没有游戏运行时隐藏",
-      "The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "只有游戏在前台时才显示叠加层。如果某个应用判断错了，请在该应用打开时右键单击托盘图标。",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "游戏运行时显示。用 Alt+Tab 切出游戏或将游戏最小化时隐藏。如果某个应用判断错了，请在该应用打开时右键单击托盘图标。",
       "Hide from screenshots and recordings": "在截图和录制中隐藏",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS、Discord 直播和截图中不会出现叠加层。你自己仍能看到。",
       "Where the numbers come from, and how often they update.": "数据来源以及更新频率。",

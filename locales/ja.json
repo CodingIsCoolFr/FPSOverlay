@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "FPS、GPU、CPU、RAMのラベル。",
       "Behavior": "動作",
       "Hide when no game is running": "ゲームが動いていないときは隠す",
-      "The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "オーバーレイはゲームが前面にあるときだけ表示されます。アプリの判定が間違っている場合は、そのアプリを開いたままタスクトレイのアイコンを右クリックしてください。",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "ゲームの実行中に表示されます。Alt+Tab でゲームから切り替えたときや、ゲームを最小化したときは隠れます。アプリの判定が間違っている場合は、そのアプリを開いたままタスクトレイのアイコンを右クリックしてください。",
       "Hide from screenshots and recordings": "スクリーンショットと録画から隠す",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS、Discordの配信、スクリーンショットにはオーバーレイが映りません。自分の画面には表示されます。",
       "Where the numbers come from, and how often they update.": "数値の取得元と更新頻度。",

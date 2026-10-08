@@ -310,7 +310,8 @@ the *Performance Log Users* group).
 Switch the game to **borderless** or **windowed** mode. Exclusive fullscreen draws over every
 other window, this overlay included.
 
-With *Hide when no game is running* on, the overlay also waits until it knows the app is a game.
+With *Hide when no game is running* on, the overlay shows while a game is running and hides when
+you alt-tab out of the game or minimize it, and it waits until it knows the app is a game.
 It knows games from Steam, Epic, GOG, Xbox and other game folders, and from the list of games
 Windows itself keeps for the Game Bar. Any other app counts while it fills the screen. If it gets
 one wrong, open that app, right-click the tray icon and pick **Count … as a game**.

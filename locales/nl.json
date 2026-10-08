@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "Labels FPS, GPU, CPU en RAM.",
       "Behavior": "Gedrag",
       "Hide when no game is running": "Verbergen als er geen game draait",
-      "The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "De overlay verschijnt alleen als er een game op de voorgrond staat. Zit hij fout bij een app, klik dan met rechts op het pictogram in het systeemvak terwijl die app open is.",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "Verschijnt zolang er een game draait. Verdwijnt als je met Alt+Tab uit de game gaat of hem minimaliseert. Zit hij fout bij een app, klik dan met rechts op het pictogram in het systeemvak terwijl die app open is.",
       "Hide from screenshots and recordings": "Verbergen in screenshots en opnames",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS, Discord-streams en screenshots tonen de overlay niet. Jij ziet hem nog wel.",
       "Where the numbers come from, and how often they update.": "Waar de waarden vandaan komen en hoe vaak ze bijwerken.",

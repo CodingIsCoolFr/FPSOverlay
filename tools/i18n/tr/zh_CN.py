@@ -207,5 +207,5 @@ T = {
 "Support": "支持",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay 免费，由一个人开发。如果它对你有帮助，在 Ko-fi 上请杯咖啡就能让它继续下去。支持完全自愿，所有功能都不受限制。",
 "Count %s as a game": "将 %s 视为游戏",
-"The overlay appears only while a game is in front. If it gets an app wrong, right-click the tray icon while that app is open.": "只有游戏在前台时才显示叠加层。如果某个应用判断错了，请在该应用打开时右键单击托盘图标。",
+"Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "游戏运行时显示。用 Alt+Tab 切出游戏或将游戏最小化时隐藏。如果某个应用判断错了，请在该应用打开时右键单击托盘图标。",
 }
