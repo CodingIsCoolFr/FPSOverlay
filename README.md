@@ -12,11 +12,18 @@
 **A fast, accurate frame rate and hardware overlay for Windows games.**<br>
 Real frame timing straight from Windows. Nothing is injected into the game.
 
-[**Download**](https://github.com/CodingIsCoolFr/FPSOverlay/releases/latest) &nbsp;·&nbsp;
+<a href="https://github.com/CodingIsCoolFr/FPSOverlay/releases/latest/download/FPSOverlaySetup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-FPSOverlaySetup.exe-4c8dff?style=for-the-badge&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgM3YxMk02LjUgMTBsNS41IDUuNSA1LjUtNS41TTQgMjAuNWgxNiIvPjwvc3ZnPg%3D%3D" alt="Download FPS Overlay for Windows" height="40"></a>
+&nbsp;
+<a href="https://ko-fi.com/codingiscool"><img src="https://img.shields.io/badge/Support_on_Ko--fi-ff5e5b?style=for-the-badge&logo=kofi&logoColor=white" alt="Support FPS Overlay on Ko-fi" height="40"></a>
+
+<sub>One file, one click. No admin prompt to install. [Portable zip](https://github.com/CodingIsCoolFr/FPSOverlay/releases/latest/download/FPSOverlay.zip) also available.</sub>
+
 [Features](#features) &nbsp;·&nbsp;
 [Screenshots](#screenshots) &nbsp;·&nbsp;
+[Install](#download-and-start) &nbsp;·&nbsp;
 [How it works](#how-it-works) &nbsp;·&nbsp;
-[Build it](#building-from-source)
+[Build it](#building-from-source) &nbsp;·&nbsp;
+[Support](#support)
 
 <br>
 
@@ -132,11 +139,19 @@ themselves while you are not playing.
 
 ## Download and start
 
-1. Download **`FPSOverlay.zip`** from the [latest release](https://github.com/CodingIsCoolFr/FPSOverlay/releases/latest).
-2. Unzip it to any folder. Nothing is installed. From then on the app updates itself.
-3. Run **`FPSOverlay.exe`** and click **Yes** on the admin prompt.
-   Windows SmartScreen may warn about an unknown app: click **More info → Run anyway**.
+1. Download **[FPSOverlaySetup.exe](https://github.com/CodingIsCoolFr/FPSOverlay/releases/latest/download/FPSOverlaySetup.exe)**.
+2. Open it. If Windows says *Windows protected your PC*, click **More info → Run anyway**.
+   The app is free and not code-signed, so Windows does not know it yet.
+3. Setup installs in a few seconds, with no admin prompt. Leave **Launch FPS Overlay** ticked,
+   click **Finish**, then click **Yes** on the admin prompt.
 4. Start a game in **borderless** or **windowed** mode and click into it. The overlay shows up.
+
+From then on the app updates itself. To remove it: *Windows Settings → Apps → FPS Overlay → Uninstall*.
+
+> [!NOTE]
+> **Prefer no installer?** Download
+> [FPSOverlay.zip](https://github.com/CodingIsCoolFr/FPSOverlay/releases/latest/download/FPSOverlay.zip),
+> unzip it to any folder and run `FPSOverlay.exe`. It updates itself the same way.
 
 > [!TIP]
 > For CPU temperature, CPU power and motherboard fans, open *Settings → Sensors* and click
@@ -225,7 +240,9 @@ build.bat
 ```
 
 This builds everything, runs the unit tests and puts a portable copy in `dist\FPSOverlay\`
-(and `dist\FPSOverlay.zip`). For UI work, `msbuild FPSOverlay.vcxproj /p:FpsoAsInvoker=true`
+(and `dist\FPSOverlay.zip`). With [Inno Setup](https://jrsoftware.org/isinfo.php) 6.7 or newer
+installed (`winget install JRSoftware.InnoSetup`), it also makes the installer,
+`dist\FPSOverlaySetup.exe`. For UI work, `msbuild FPSOverlay.vcxproj /p:FpsoAsInvoker=true`
 builds a copy that does not ask for admin rights.
 
 ```
@@ -238,9 +255,10 @@ src/
   platform/   Win32 helpers, shell, Task Scheduler
   locale/     translations and right-to-left text shaping
 bridge/       FPSOverlay.Sensors.dll: C++/CLI bridge to LibreHardwareMonitor
+installer/    Inno Setup script and wizard pictures
 tests/        unit tests
 locales/      translation files
-tools/        translation and documentation image scripts
+tools/        translation, documentation image and installer picture scripts
 ```
 
 <details>
@@ -315,6 +333,12 @@ No telemetry, no accounts. The only network traffic is the update check: at star
 and automatic updates are on (the default), it downloads the release zip, checks its SHA-256
 fingerprint against the one GitHub publishes, and installs it when no game is running. Turn this
 off under *Settings → General*; the *About* page then only tells you that an update exists.
+
+## Support
+
+FPS Overlay is free and made by one person. If it helps you, you can
+**[buy me a coffee on Ko-fi](https://ko-fi.com/codingiscool)**, or use the **Sponsor** button at the
+top of this page. It is never required, and nothing in the app is held back if you don't.
 
 ## Third-party components
 

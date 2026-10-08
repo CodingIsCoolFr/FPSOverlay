@@ -12,6 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Inno Setup
+        run: choco upgrade innosetup -y --no-progress
+
       - name: Build, test and package
         shell: cmd
         run: build.bat
@@ -20,3 +23,9 @@ jobs:
         with:
           name: FPSOverlay
           path: dist/FPSOverlay
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FPSOverlaySetup
+          path: dist/FPSOverlaySetup.exe
+          if-no-files-found: error

@@ -39,7 +39,20 @@ copy /y locales\*.json "%OUT%\locales\" >nul
 powershell -NoProfile -Command "Compress-Archive -Path 'dist\FPSOverlay' -DestinationPath 'dist\FPSOverlay.zip' -Force" || goto :failed
 
 echo.
-echo Done: dist\FPSOverlay\FPSOverlay.exe  (and dist\FPSOverlay.zip)
+echo Making the installer...
+set "ISCC="
+for %%p in ("%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" "%ProgramFiles%\Inno Setup 6\ISCC.exe") do if not defined ISCC if exist %%p set "ISCC=%%~p"
+if not defined ISCC (
+    echo Inno Setup 6 was not found, so there is no installer this time.
+    echo Get it with: winget install JRSoftware.InnoSetup
+    echo.
+    echo Done: dist\FPSOverlay\FPSOverlay.exe  and dist\FPSOverlay.zip
+    exit /b 0
+)
+"%ISCC%" /Q installer\FPSOverlay.iss || goto :failed
+
+echo.
+echo Done: dist\FPSOverlay\FPSOverlay.exe, dist\FPSOverlay.zip and dist\FPSOverlaySetup.exe
 exit /b 0
 
 :failed
