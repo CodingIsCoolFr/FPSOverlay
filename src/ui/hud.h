@@ -69,7 +69,7 @@ private:
     void BuildFrame(const cfg::Config& cfg, const HudFrameInfo& frames, const SensorSnapshot& sensors,
                     float dpiScale, bool glow);
     bool ResolveMonitor(const cfg::Config& cfg, RECT& monitorRect);
-    bool Layout(const cfg::Config& cfg, int contentW, int contentH, POINT& topLeft);   // content, not window
+    bool ContentOrigin(const cfg::Config& cfg, int contentW, int contentH, POINT& topLeft);    // content, not window
     void Place(const cfg::Config& cfg, int contentW, int contentH);
     void UpdateInteractive();
     void SetClickThrough(bool on);

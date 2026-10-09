@@ -411,14 +411,14 @@ POINT Hud::Spot(const cfg::Config& c)
 {
     // Before the first frame the size is unknown; the anchor corner is close enough.
     POINT at;
-    if (!Layout(c, contentW_, contentH_, at)) return { 0, 0 };
+    if (!ContentOrigin(c, contentW_, contentH_, at)) return { 0, 0 };
     return { at.x + contentW_ / 2, at.y + contentH_ / 2 };
 }
 
 void Hud::Place(const cfg::Config& c, int contentW, int contentH)
 {
     POINT at;
-    if (!Layout(c, contentW, contentH, at)) return;
+    if (!ContentOrigin(c, contentW, contentH, at)) return;
     const int wx = at.x - pad_, wy = at.y - pad_;
     const int ww = contentW + 2 * pad_, wh = contentH + 2 * pad_;
     RECT cur;
@@ -427,7 +427,7 @@ void Hud::Place(const cfg::Config& c, int contentW, int contentH)
         SetWindowPos(hwnd_, HWND_TOPMOST, wx, wy, ww, wh, SWP_NOACTIVATE | SWP_NOREDRAW);
 }
 
-bool Hud::Layout(const cfg::Config& c, int contentW, int contentH, POINT& at)
+bool Hud::ContentOrigin(const cfg::Config& c, int contentW, int contentH, POINT& at)
 {
     RECT rc;
     if (!ResolveMonitor(c, rc)) return false;
