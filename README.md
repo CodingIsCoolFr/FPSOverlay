@@ -323,7 +323,8 @@ is a video player. If it gets one wrong, open that app, right-click the tray ico
 
 It shows while a game is drawing frames, and hides when:
 
-- no game is running, or the game has not drawn a frame for 3 seconds (loading screens are fine),
+- no game is running, or the game has stopped drawing for 3 seconds (a short loading screen does
+  not make it blink),
 - the game is minimized or on another virtual desktop,
 - you alt-tab out of the game to another app on the game's screen, until you go back to it.
   The Start menu, search, the Alt+Tab switcher and the taskbar do not count,
