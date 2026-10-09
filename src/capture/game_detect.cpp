@@ -7,7 +7,7 @@ namespace games {
 namespace {
 
 // Apps that draw frames all day but are not games. Browsers and Electron apps present from a
-// GPU child process; media players, launchers and tools present while they animate.
+// GPU child process; launchers and tools present while they animate. Players are in kVideoApps.
 constexpr const char* kNotGames[] = {
     // browsers
     "chrome.exe", "msedge.exe", "msedgewebview2.exe", "firefox.exe", "opera.exe", "brave.exe", "vivaldi.exe",
@@ -22,15 +22,12 @@ constexpr const char* kNotGames[] = {
     "riotclientservices.exe", "riotclientux.exe", "riotclientuxrender.exe", "eadesktop.exe", "origin.exe", "upc.exe",
     "ubisoftconnect.exe", "galaxyclient.exe", "playnite.desktopapp.exe", "playnite.fullscreenapp.exe", "xboxpcapp.exe",
     "gamebar.exe", "heroic.exe", "itch.exe", "overwolf.exe", "medal.exe",
-    // video and music
-    "vlc.exe", "mpc-hc.exe", "mpc-hc64.exe", "mpc-be.exe", "mpc-be64.exe", "mpv.exe", "potplayermini.exe",
-    "potplayermini64.exe", "wmplayer.exe", "video.ui.exe", "microsoft.media.player.exe", "plex.exe", "kodi.exe",
-    "stremio.exe", "hayase.exe",
     // streaming, capture, hardware and desktop tools
     "obs64.exe", "obs32.exe", "streamlabs obs.exe", "nvidia overlay.exe", "nvidia app.exe", "radeonsoftware.exe",
     "msiafterburner.exe", "rtss.exe", "steelseriesggclient.exe", "steelseriesgg.exe", "icue.exe", "nzxt cam.exe",
-    "wallpaper32.exe", "wallpaper64.exe", "lively.exe", "losslessscaling.exe", "vtube studio.exe", "blender.exe",
-    "vrmonitor.exe", "vrserver.exe", "vrcompositor.exe", "vrdashboard.exe", "vrwebhelper.exe", "vrstartup.exe",
+    "wallpaper32.exe", "wallpaper64.exe", "lively.exe", "losslessscaling.exe", "magpie.exe", "vtube studio.exe",
+    "blender.exe", "vrmonitor.exe", "vrserver.exe", "vrcompositor.exe", "vrdashboard.exe", "vrwebhelper.exe",
+    "vrstartup.exe",
     // screenshots: their capture layer covers the whole screen
     "screenclippinghost.exe", "snippingtool.exe", "screensketch.exe", "sharex.exe", "greenshot.exe", "lightshot.exe",
     // Windows itself
@@ -38,6 +35,50 @@ constexpr const char* kNotGames[] = {
     "applicationframehost.exe", "textinputhost.exe", "lockapp.exe", "taskmgr.exe", "systemsettings.exe",
     "shellhost.exe", "pickerhost.exe", "magnify.exe", "fpsoverlay.exe",
 };
+
+// Video players and streaming apps. Stremio 5 is stremio-shell-ng.exe; AniSol plays through Qt
+// Multimedia, which apps also load just for sounds, so it is listed by name.
+constexpr const char* kVideoApps[] = {
+    "vlc.exe", "mpc-hc.exe", "mpc-hc64.exe", "mpc-be.exe", "mpc-be64.exe", "mpc-qt.exe", "mpv.exe", "mpvnet.exe",
+    "smplayer.exe", "potplayer.exe", "potplayer64.exe", "potplayermini.exe", "potplayermini64.exe", "kmplayer.exe",
+    "kmplayer64x.exe", "gom.exe", "wmplayer.exe", "video.ui.exe", "microsoft.media.player.exe", "plex.exe",
+    "plex htpc.exe", "jellyfinmediaplayer.exe", "kodi.exe", "stremio.exe", "stremio-shell-ng.exe", "hayase.exe",
+    "anisol.exe", "appletv.exe", "wwahost.exe",
+};
+
+// DLLs only video players load.
+constexpr const wchar_t* kVideoEngines[] = {
+    L"libmpv-2.dll", L"libmpv.dll", L"mpv-2.dll", L"mpv-1.dll", L"libvlc.dll", L"libvlccore.dll",
+    L"windows.media.protection.playready.dll",
+};
+
+// Overlays, frame scalers and screenshot tools: they cover the game without hiding it.
+constexpr const char* kSeeThrough[] = {
+    "nvidia overlay.exe", "nvidia share.exe", "gamebar.exe", "overwolf.exe", "overwolfbrowser.exe", "medal.exe",
+    "rtss.exe", "losslessscaling.exe", "magpie.exe", "screenclippinghost.exe", "snippingtool.exe",
+    "screensketch.exe", "sharex.exe", "greenshot.exe", "lightshot.exe", "fpsoverlay.exe",
+};
+
+// Windows' own pop-ups, by program and by window class (the taskbar and the Alt+Tab switcher
+// belong to explorer.exe, which also opens real folder windows).
+constexpr const char* kPopupApps[] = {
+    "searchhost.exe", "searchapp.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe", "shellhost.exe",
+    "textinputhost.exe", "screenclippinghost.exe",
+};
+constexpr const wchar_t* kPopupClasses[] = {
+    L"Shell_TrayWnd", L"Shell_SecondaryTrayWnd", L"XamlExplorerHostIslandWindow", L"MultitaskingViewFrame",
+    L"TaskSwitcherWnd", L"ForegroundStaging", L"NotifyIconOverflowWindow", L"TopLevelWindowForOverflowXamlIsland",
+    L"TaskListThumbnailWnd",
+};
+
+template <size_t N>
+bool Listed(const char* const (&list)[N], std::string_view exeName)
+{
+    const std::string exe = Lower(exeName);
+    for (const char* n : list)
+        if (exe == n) return true;
+    return false;
+}
 
 // Folders games are installed into, lower-case, matched anywhere in the exe path.
 constexpr const wchar_t* kGameFolders[] = {
@@ -68,21 +109,49 @@ std::string Lower(std::string_view s)
 }
 
 Verdict Classify(std::wstring_view exePath, std::string_view exeName, const Choices& choices,
-                 const std::vector<std::wstring>& knownGames)
+                 const std::vector<std::wstring>& knownGames, bool playsVideo)
 {
     const std::string exe = Lower(exeName);
     if (exe.empty()) return Verdict::Unknown;
     if (Contains(choices.games, exe)) return Verdict::Game;
     if (Contains(choices.notGames, exe)) return Verdict::NotGame;
-    for (const char* n : kNotGames)
-        if (exe == n) return Verdict::NotGame;
+    if (Listed(kNotGames, exe) || Listed(kVideoApps, exe)) return Verdict::NotGame;
 
     const std::wstring path = LowerW(exePath);
-    if (path.empty()) return Verdict::Unknown;
-    if (std::find(knownGames.begin(), knownGames.end(), path) != knownGames.end()) return Verdict::Game;
-    for (const wchar_t* f : kGameFolders)
-        if (path.find(f) != std::wstring::npos) return Verdict::Game;
+    if (!path.empty())
+        for (const wchar_t* f : kGameFolders)
+            if (path.find(f) != std::wstring::npos) return Verdict::Game;
+    // Windows' list is checked last: the Game Bar also adds apps that are not games (here: a
+    // Discord client), and a video player must not count because of it.
+    if (playsVideo) return Verdict::NotGame;
+    if (!path.empty() && std::find(knownGames.begin(), knownGames.end(), path) != knownGames.end()) return Verdict::Game;
     return Verdict::Unknown;
+}
+
+bool IsVideoApp(std::string_view exeName)
+{
+    return Listed(kVideoApps, exeName);
+}
+
+bool IsVideoEngine(std::wstring_view moduleName)
+{
+    const std::wstring m = LowerW(moduleName);
+    for (const wchar_t* e : kVideoEngines)
+        if (m == e) return true;
+    return false;
+}
+
+bool IsSeeThrough(std::string_view exeName)
+{
+    return Listed(kSeeThrough, exeName);
+}
+
+bool IsWindowsPopup(std::string_view exeName, std::wstring_view windowClass)
+{
+    if (Listed(kPopupApps, exeName)) return true;
+    for (const wchar_t* c : kPopupClasses)
+        if (windowClass == c) return true;
+    return false;
 }
 
 const std::vector<std::wstring>& WindowsGameList()

@@ -407,10 +407,30 @@ bool Hud::ResolveMonitor(const cfg::Config& c, RECT& rc)
     return true;
 }
 
+POINT Hud::Spot(const cfg::Config& c)
+{
+    // Before the first frame the size is unknown; the anchor corner is close enough.
+    POINT at;
+    if (!ContentOrigin(c, contentW_, contentH_, at)) return { 0, 0 };
+    return { at.x + contentW_ / 2, at.y + contentH_ / 2 };
+}
+
 void Hud::Place(const cfg::Config& c, int contentW, int contentH)
 {
+    POINT at;
+    if (!ContentOrigin(c, contentW, contentH, at)) return;
+    const int wx = at.x - pad_, wy = at.y - pad_;
+    const int ww = contentW + 2 * pad_, wh = contentH + 2 * pad_;
+    RECT cur;
+    GetWindowRect(hwnd_, &cur);
+    if (cur.left != wx || cur.top != wy || cur.right - cur.left != ww || cur.bottom - cur.top != wh)
+        SetWindowPos(hwnd_, HWND_TOPMOST, wx, wy, ww, wh, SWP_NOACTIVATE | SWP_NOREDRAW);
+}
+
+bool Hud::ContentOrigin(const cfg::Config& c, int contentW, int contentH, POINT& at)
+{
     RECT rc;
-    if (!ResolveMonitor(c, rc)) return;
+    if (!ResolveMonitor(c, rc)) return false;
     const int monW = rc.right - rc.left;
     int x, y;
     if (c.customPos) {
@@ -426,13 +446,8 @@ void Hud::Place(const cfg::Config& c, int contentW, int contentH)
     // Never let the HUD leave its monitor.
     x = std::clamp(x, (int)rc.left, std::max((int)rc.left, (int)rc.right - contentW));
     y = std::clamp(y, (int)rc.top, std::max((int)rc.top, (int)rc.bottom - contentH));
-
-    const int wx = x - pad_, wy = y - pad_;
-    const int ww = contentW + 2 * pad_, wh = contentH + 2 * pad_;
-    RECT cur;
-    GetWindowRect(hwnd_, &cur);
-    if (cur.left != wx || cur.top != wy || cur.right - cur.left != ww || cur.bottom - cur.top != wh)
-        SetWindowPos(hwnd_, HWND_TOPMOST, wx, wy, ww, wh, SWP_NOACTIVATE | SWP_NOREDRAW);
+    at = { x, y };
+    return true;
 }
 
 void Hud::Tick(const cfg::Config& c, const HudFrameInfo& frames, const SensorSnapshot& sensors, bool force)

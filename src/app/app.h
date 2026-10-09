@@ -76,6 +76,7 @@ private:
     CaptureWatchdog captureWatchdog_;
     ULONGLONG lastCaptureCheck_ = 0;
     GameVisibility gameVis_;        // "Hide when no game is running"
+    TargetTracker::Spot hudSpot_ = TargetTracker::Spot::Other;     // what the HUD sits on
     int gameLogState_ = -1;         // last logged inputs of that decision
     DWORD gameLogPid_ = 0;
     bool hotkeyDown_[(int)cfg::HotkeyAction::Count] = {};

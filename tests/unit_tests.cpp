@@ -148,6 +148,56 @@ static void TestGameDetect()
     CHECK(classify(L"C:\\Tools\\CrashDetective.exe", "CrashDetective.exe", mine) == Verdict::Game);
     CHECK(classify(L"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "chrome.exe", mine) == Verdict::Game);
     CHECK(classify(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\VRChat\\VRChat.exe", "VRChat.exe", mine) == Verdict::NotGame);
+
+    // Video players are never games. Stremio 5 is stremio-shell-ng.exe, and a film in it fills
+    // the screen like a game would.
+    CHECK(classify(L"C:\\Users\\me\\AppData\\Local\\Programs\\Stremio\\stremio-shell-ng.exe", "stremio-shell-ng.exe",
+                   none) == Verdict::NotGame);
+    CHECK(classify(L"C:\\Program Files\\AniSol\\AniSol.exe", "AniSol.exe", none) == Verdict::NotGame);
+    // An unknown program with a video engine loaded is a player...
+    auto withVideo = [&](const wchar_t* path, const char* exe, const games::Choices& ch) {
+        return games::Classify(path, exe, ch, known, true);
+    };
+    CHECK(withVideo(L"C:\\Tools\\Player\\player.exe", "player.exe", none) == Verdict::NotGame);
+    CHECK(classify(L"C:\\Tools\\Player\\player.exe", "player.exe", none) == Verdict::Unknown);
+    // ... even on Windows' list, which also holds apps that are not games ...
+    CHECK(withVideo(L"D:\\Stuff\\Minecraft\\javaw.exe", "javaw.exe", none) == Verdict::NotGame);
+    // ... but a game in a game folder that plays its videos with VLC is still a game,
+    CHECK(withVideo(L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\VRChat\\VRChat.exe", "VRChat.exe", none) ==
+          Verdict::Game);
+    // and the user's choice still wins.
+    games::Choices player;
+    player.games = { "player.exe" };
+    CHECK(withVideo(L"C:\\Tools\\Player\\player.exe", "player.exe", player) == Verdict::Game);
+
+    CHECK(games::IsVideoApp("Stremio-Shell-NG.exe"));
+    CHECK(games::IsVideoApp("vlc.exe"));
+    CHECK(!games::IsVideoApp("VRChat.exe"));
+    CHECK(!games::IsVideoApp("firefox.exe"));
+    CHECK(games::IsVideoEngine(L"libmpv-2.dll"));
+    CHECK(games::IsVideoEngine(L"LIBVLC.DLL"));
+    CHECK(games::IsVideoEngine(L"Windows.Media.Protection.PlayReady.dll"));
+    CHECK(!games::IsVideoEngine(L"mfplat.dll"));        // games load Media Foundation for cut-scenes
+    CHECK(!games::IsVideoEngine(L"d3d11.dll"));
+    CHECK(!games::IsVideoEngine(L"Qt6Multimedia.dll")); // also loaded just for sounds
+
+    // Overlays and frame scalers sit over the game without hiding it.
+    CHECK(games::IsSeeThrough("LosslessScaling.exe"));
+    CHECK(games::IsSeeThrough("NVIDIA Overlay.exe"));
+    CHECK(games::IsSeeThrough("ScreenClippingHost.exe"));
+    CHECK(!games::IsSeeThrough("stremio-shell-ng.exe"));
+    CHECK(!games::IsSeeThrough("firefox.exe"));
+
+    // Windows' pop-ups: Start and search, the Alt+Tab switcher and the taskbar. A folder window
+    // is a real app, although it also belongs to explorer.exe.
+    CHECK(games::IsWindowsPopup("SearchHost.exe", L"Windows.UI.Core.CoreWindow"));
+    CHECK(games::IsWindowsPopup("StartMenuExperienceHost.exe", L"Windows.UI.Core.CoreWindow"));
+    CHECK(games::IsWindowsPopup("explorer.exe", L"XamlExplorerHostIslandWindow"));
+    CHECK(games::IsWindowsPopup("explorer.exe", L"Shell_TrayWnd"));
+    CHECK(games::IsWindowsPopup("explorer.exe", L"ForegroundStaging"));
+    CHECK(!games::IsWindowsPopup("explorer.exe", L"CabinetWClass"));
+    CHECK(!games::IsWindowsPopup("firefox.exe", L"MozillaWindowClass"));
+    CHECK(!games::IsWindowsPopup("stremio-shell-ng.exe", L"NativeWindowsGuiWindow"));
 }
 
 // ── "Hide when no game is running" ──────────────────────────────────────────
@@ -167,8 +217,8 @@ static void TestGameVisibility()
         return v.Update(in, t);
     };
 
-    // The user's case: the game runs behind a video and never had focus. Not alt-tabbed out of,
-    // so the HUD shows.
+    // The game runs behind other apps and never had focus (VR). Not alt-tabbed out of, so the
+    // HUD shows.
     CHECK(step(F::GameScreen));
     CHECK(step(F::OtherScreen));
 
@@ -225,6 +275,62 @@ static void TestGameVisibility()
     CHECK(!step(F::GameScreen, 500));
     in.target = 200;
     CHECK(step(F::GameScreen));
+}
+
+static void TestGameVisibilityVideoAndMemory()
+{
+    using F = GameVisibility::Front;
+    GameVisibility v;
+    uint64_t t = 0;
+    GameVisibility::Inputs in;
+    in.target = 100;
+    in.isGame = true;
+    in.secondsSinceFrame = 0.01;
+    auto step = [&](F front, uint64_t ms = 100) {
+        in.front = front;
+        t += ms;
+        return v.Update(in, t);
+    };
+
+    // The reported case: a film plays in Stremio over a game that never had focus. With the film
+    // under the HUD it hides after the grace period, and comes back as soon as the film is gone.
+    CHECK(step(F::GameScreen));
+    in.overVideo = true;
+    CHECK(step(F::GameScreen));
+    CHECK(!step(F::GameScreen, 500));
+    CHECK(!step(F::OtherScreen, 1000));     // chatting on the other screen while the film plays
+    in.overVideo = false;
+    CHECK(step(F::OtherScreen));
+
+    // While the game has focus, a video left under the HUD (a windowed game) does not hide it.
+    in.overVideo = true;
+    CHECK(step(F::Game));
+    CHECK(step(F::Game, 1000));
+    in.overVideo = false;
+
+    // Alt-tabbed out, then the tracker briefly measures another app (a hitch in the game's frames)
+    // and comes back: still alt-tabbed out. 2.0.10 forgot it here and showed the HUD over Firefox.
+    step(F::Game);
+    step(F::GameScreen);
+    CHECK(!step(F::GameScreen, 500));
+    in.target = 300;            // Firefox, in front
+    in.isGame = false;
+    CHECK(!step(F::Game));
+    in.target = 100;
+    in.isGame = true;
+    CHECK(!step(F::GameScreen));
+    CHECK(v.AltTabbedOut());
+    CHECK(step(F::Game));       // back in the game
+
+    // Start, search or the Alt+Tab switcher in front is not leaving the game.
+    CHECK(step(F::Moving, 1000));
+    CHECK(step(F::Game));
+    CHECK(!v.AltTabbedOut());
+
+    // On another virtual desktop the game counts as minimized.
+    in.minimized = true;
+    step(F::OtherScreen);
+    CHECK(!step(F::OtherScreen, 500));
 }
 
 // ── Capture watchdog ────────────────────────────────────────────────────────
@@ -509,6 +615,7 @@ int main()
     TestConfig();
     TestGameDetect();
     TestGameVisibility();
+    TestGameVisibilityVideoAndMemory();
     TestCaptureWatchdog();
     TestFrameStats();
     TestLhmSelect();

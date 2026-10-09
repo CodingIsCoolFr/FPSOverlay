@@ -207,5 +207,5 @@ T = {
 "Support": "후원하기",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay는 무료이며 한 사람이 만듭니다. 도움이 되었다면 Ko-fi에서 커피 한 잔으로 개발을 응원해 주세요. 후원은 언제나 선택이며, 제한되는 기능은 없습니다.",
 "Count %s as a game": "%s을(를) 게임으로 취급",
-"Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "게임이 실행 중일 때 표시됩니다. Alt+Tab으로 게임에서 나가거나 게임을 최소화하면 숨겨집니다. 앱을 잘못 판단하면 그 앱을 연 채로 트레이 아이콘을 마우스 오른쪽 버튼으로 클릭하세요.",
+"Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.": "게임이 실행 중일 때 표시됩니다. Alt+Tab으로 게임에서 나가거나 게임을 최소화하면 숨겨지고, 동영상이나 다른 전체 화면 앱 위에서도 숨겨집니다. 앱을 잘못 판단하면 그 앱을 연 채로 트레이 아이콘을 마우스 오른쪽 버튼으로 클릭하세요.",
 }
