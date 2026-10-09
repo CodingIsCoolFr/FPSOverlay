@@ -260,7 +260,7 @@ bridge/       FPSOverlay.Sensors.dll: C++/CLI bridge to LibreHardwareMonitor
 installer/    Inno Setup script and wizard pictures
 tests/        unit tests
 locales/      translation files
-tools/        translation, documentation image and installer picture scripts
+tools/        translation, documentation image and installer picture scripts, test tools
 ```
 
 <details>
