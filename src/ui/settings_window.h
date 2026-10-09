@@ -6,6 +6,7 @@
 #include "app/updater.h"
 #include "render/d3d.h"
 #include "sensors/snapshot.h"
+#include "ui/scroll_glide.h"
 
 #include <windows.h>
 
@@ -51,7 +52,7 @@ public:
     HWND Hwnd() const { return hwnd_; }
 
     // Renders a frame when due. Returns true if the config was edited this frame.
-    // vblank: the frame waitable fired (the display can take a frame now).
+    // vblank: the loop's wait on FrameWaitable() returned (a queued frame is done).
     bool Tick(const UiStatus& status, const SensorSnapshot& sensors, bool vblank = false);
 
     // While the user scrolls, moves the mouse or types (and for a second after), and while a
@@ -59,6 +60,8 @@ public:
     // FrameWaitable(). Otherwise it renders 30 times a second in front, 15 behind other windows.
     bool WantsFastFrames() const;
     HANDLE FrameWaitable() const { return target_.FrameWaitable(); }
+    // Fast frames, and the display's queue has room: render the next one without waiting.
+    bool ReadyForFastFrame();
 
     // While the window is dragged or resized, Windows' own move loop blocks the app's loop;
     // this runs the app's frame from a timer meanwhile.
@@ -111,8 +114,8 @@ private:
     double qpcFreq_ = 1.0;
     bool inputSinceCheck_ = true;   // config can only change through input: compare it then
     int framesSinceCheck_ = 0;
-    float scrollTarget_ = 0.f;      // smooth wheel scrolling of the page
-    float scrollPos_ = 0.f;         // gliding position (float; ImGui keeps whole pixels)
+    ScrollGlide glide_;             // smooth wheel scrolling of the page
+    float drawnScroll_ = 0.f;       // page scroll the last frame was drawn at (diagnostics)
     bool scrollAnimating_ = false;
     bool minimized_ = false;
     bool welcomeOpen_ = false;

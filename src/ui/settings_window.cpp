@@ -14,6 +14,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#ifdef FPSO_TEST_INSTANCE
+#include <dwmapi.h>
+#endif
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandlerEx(HWND, UINT, WPARAM, LPARAM, ImGuiIO&);
 
@@ -197,8 +200,14 @@ bool SettingsWindow::WantsFastFrames() const
     return (now.QuadPart - lastInputQpc_) / qpcFreq_ < 1.0;
 }
 
+bool SettingsWindow::ReadyForFastFrame()
+{
+    return ctx_ && WantsFastFrames() && target_.FrameWaitable() && !target_.Occluded() && target_.QueueHasRoom();
+}
+
 bool SettingsWindow::Tick(const UiStatus& status, const SensorSnapshot& sensors, bool vblank)
 {
+    if (vblank) target_.FrameDone();
     if (!hwnd_ || !ctx_) return false;
     if (minimized_ || target_.Occluded()) return false;
 
@@ -206,14 +215,14 @@ bool SettingsWindow::Tick(const UiStatus& status, const SensorSnapshot& sensors,
     QueryPerformanceCounter(&now);
     const bool fast = WantsFastFrames() && target_.FrameWaitable();
     const double since = (now.QuadPart - lastFrameQpc_) / qpcFreq_;
-    if (fast) {
-        // Paced by the display: render when the frame waitable fires. The 50 ms fallback keeps
-        // the window alive should the signal ever not come.
-        if (!vblank && lastFrameQpc_ && since < 0.05) return false;
-    } else {
+    if (!fast) {
         const double interval = GetForegroundWindow() == hwnd_ ? 1.0 / 30.0 : 1.0 / 15.0;
         if (lastFrameQpc_ && since < interval - 0.001) return false;
     }
+    // Fast frames are paced by the display: one whenever its queue has room. Slow frames wait for
+    // room too, so every frame is counted. Without room for a while (the GPU stalled), fast frames
+    // go ahead after 50 ms and slow ones after a quarter second, so the window can never stall.
+    if (!target_.QueueHasRoom() && lastFrameQpc_ && since < (fast ? 0.05 : 0.25)) return false;
     lastFrameQpc_ = now.QuadPart;
 
     ImGuiContext* prev = ImGui::GetCurrentContext();
@@ -232,8 +241,14 @@ bool SettingsWindow::Tick(const UiStatus& status, const SensorSnapshot& sensors,
 #ifdef FPSO_TEST_INSTANCE
     LARGE_INTEGER beforePresent;
     QueryPerformanceCounter(&beforePresent);
+    const float dtMs = ImGui::GetIO().DeltaTime * 1000.f;
 #endif
-    target_.Present(fast);      // vsync while paced by the waitable
+    // Always with vsync: the refresh that shows a frame is what marks it done, so the queue paces
+    // fast frames to the display. (Without vsync a frame is done as soon as it is drawn.) Within
+    // the queue, Present returns at once. Before 2.0.12 slow frames never waited, unused signals
+    // piled up, and fast frames raced ahead and waited out a whole refresh inside Present
+    // instead, which NVIDIA's driver does by spinning a CPU core.
+    target_.Present(true);
     ImGui::SetCurrentContext(prev);
 
 #ifdef FPSO_TEST_INSTANCE
@@ -252,10 +267,24 @@ bool SettingsWindow::Tick(const UiStatus& status, const SensorSnapshot& sensors,
             logx::Info("settings: %d frames/s (%d paced), build %.2f ms + present %.2f ms per frame, last input %.1f s ago "
                        "(msg 0x%04x), scroll %.0f -> %.0f",
                        frames, fastFrames, workMs / frames, presentMs / frames, (end.QuadPart - lastInputQpc_) / qpcFreq_,
-                       lastInputMsg_, scrollPos_, scrollTarget_);
+                       lastInputMsg_, glide_.Position(), glide_.Target());
             frames = fastFrames = 0;
             workMs = presentMs = 0;
             windowStart = t;
+        }
+    }
+    {   // Test builds: one line per fast frame in frames.csv next to the log, to find uneven
+        // frames and uneven scroll steps: when the frame started, ImGui's time step, the scroll it
+        // was drawn at and its target, and how long until the next refresh (DWM's qpcVBlank).
+        static FILE* csv = nullptr;
+        if (!csv && _wfopen_s(&csv, (win::DataDir() + L"frames.csv").c_str(), L"w") == 0 && csv)
+            fprintf(csv, "ms,dtMs,scroll,target,toRefreshMs\n");
+        if (csv && (fast || scrollAnimating_)) {
+            DWM_TIMING_INFO dwm = { sizeof(dwm) };
+            DwmGetCompositionTimingInfo(nullptr, &dwm);
+            fprintf(csv, "%.3f,%.3f,%.0f,%.1f,%.3f\n", now.QuadPart * 1000.0 / qpcFreq_, dtMs, drawnScroll_, glide_.Target(),
+                    ((LONGLONG)dwm.qpcVBlank - (LONGLONG)now.QuadPart) * 1000.0 / qpcFreq_);
+            fflush(csv);    // test scripts end the app by killing it
         }
     }
 #endif
@@ -273,27 +302,27 @@ bool SettingsWindow::Tick(const UiStatus& status, const SensorSnapshot& sensors,
     return false;
 }
 
-// Wheel scrolling that glides to its target instead of jumping a whole step per notch, like
-// Windows' own lists. Scrollbar drags, keyboard navigation and page changes move the target too.
+// Wheel scrolling that glides to its target (see ScrollGlide). Scrollbar drags, keyboard
+// navigation and page changes move the page too; the glide then starts from there.
 void SettingsWindow::SmoothScroll(float em)
 {
     const ImGuiIO& io = ImGui::GetIO();
     const float maxY = ImGui::GetScrollMaxY();
     const float cur = ImGui::GetScrollY();
+    drawnScroll_ = cur;
     // The glide runs on its own float position: ImGui keeps whole pixels, and rounding each small
     // step back would stall the glide just short of its target.
-    if (std::fabs(cur - std::round(scrollPos_)) > 1.f) scrollPos_ = scrollTarget_ = cur;   // moved by something else
+    if (std::fabs(cur - std::round(glide_.Position())) > 1.f) glide_.Jump(cur);   // moved by something else
+    float target = glide_.Target();
     if (io.MouseWheel != 0.f && !io.KeyCtrl && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
         const float step = std::floor(std::min(5.f * em, ImGui::GetWindowHeight() * 0.67f));   // ImGui's own step
-        scrollTarget_ -= io.MouseWheel * step;
+        target -= io.MouseWheel * step;
     }
-    scrollTarget_ = std::clamp(scrollTarget_, 0.f, maxY);
-    const float k = 1.f - std::exp(-std::max(io.DeltaTime, 0.f) * 18.f);    // ~55 ms to cover most of the way
-    scrollPos_ = std::clamp(scrollPos_ + (scrollTarget_ - scrollPos_) * k, 0.f, maxY);
-    if (std::fabs(scrollTarget_ - scrollPos_) < 0.5f) scrollPos_ = scrollTarget_;
-    const float set = std::round(scrollPos_);
+    glide_.SetTarget(std::clamp(target, 0.f, maxY));
+    glide_.Advance(io.DeltaTime);
+    const float set = std::round(std::clamp(glide_.Position(), 0.f, maxY));
     if (set != cur) ImGui::SetScrollY(set);
-    scrollAnimating_ = scrollPos_ != scrollTarget_;
+    scrollAnimating_ = glide_.Gliding();
 }
 
 void SettingsWindow::Draw(const UiStatus& status, const SensorSnapshot& sensors)
@@ -1261,6 +1290,11 @@ LRESULT SettingsWindow::Handle(UINT msg, WPARAM wp, LPARAM lp)
             if (onModalTick) onModalTick();
             return 0;
         }
+        break;
+    case WM_SYSCOMMAND:
+        // A lone Alt tap would open the (absent) menu bar: a modal loop that stops this window and
+        // the overlay until the next click. Alt+Space still opens the window menu.
+        if ((wp & 0xFFF0) == SC_KEYMENU && lp == 0) return 0;
         break;
     case WM_GETMINMAXINFO: {
         auto* mmi = reinterpret_cast<MINMAXINFO*>(lp);

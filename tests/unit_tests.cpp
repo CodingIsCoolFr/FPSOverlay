@@ -10,9 +10,11 @@
 #include "capture/game_detect.h"
 #include "sensors/cpu_direct.h"
 #include "sensors/lhm_select.h"
+#include "ui/scroll_glide.h"
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -606,6 +608,69 @@ static void TestCpuTempDecode()
     CHECK(cputemp::DecodeAmd(704u << 21, 20.f) == 68.f);
 }
 
+// ── Scroll glide ────────────────────────────────────────────────────────────
+
+static void TestScrollGlide()
+{
+    const float dt = 1.f / 240.f;   // one frame at 240 Hz
+
+    // One notch (80 px) from rest: moves on the first frame, never past the target, and rests on it
+    // after 150 ms, even though the window sets the same target again every frame.
+    ScrollGlide g;
+    g.SetTarget(80.f);
+    g.Advance(dt);
+    CHECK(g.Position() > 3.f);
+    bool steady = true;
+    for (int i = 0; i < 36; ++i) {
+        const float before = g.Position();
+        g.SetTarget(80.f);
+        g.Advance(dt);
+        if (g.Position() < before || g.Position() > 80.f) steady = false;
+    }
+    CHECK(steady);
+    CHECK(!g.Gliding() && g.Position() == 80.f && g.Speed() == 0.f);
+
+    // A spinning wheel, a notch every 70 ms: an even speed and no lurch at each notch. The easing
+    // before 2.0.12 swung between 2 and 8 px a frame and jumped about 5 px at every notch.
+    ScrollGlide w;
+    float target = 0.f, lastStep = -1.f, slowest = 1e9f, fastest = 0.f, biggestChange = 0.f;
+    for (int f = 0; f < 8 * 17; ++f) {
+        if (f % 17 == 0) w.SetTarget(target += 80.f);
+        const float before = w.Position();
+        w.Advance(dt);
+        const float step = w.Position() - before;
+        if (f >= 3 * 17 && f < 7 * 17) {     // up to speed, before the last notch
+            slowest = std::min(slowest, step);
+            fastest = std::max(fastest, step);
+        }
+        if (lastStep >= 0.f) biggestChange = std::max(biggestChange, std::fabs(step - lastStep));
+        lastStep = step;
+    }
+    CHECK(slowest > 4.f && fastest < 5.3f);
+    CHECK(biggestChange < 0.5f);
+    for (int f = 0; f < 37; ++f) w.Advance(dt);
+    CHECK(!w.Gliding() && w.Position() == target);
+
+    // Reversing mid-glide heads straight for the new target, without overshooting it.
+    ScrollGlide r;
+    r.SetTarget(400.f);
+    for (int f = 0; f < 12; ++f) r.Advance(dt);
+    const float turnedAt = r.Position();
+    r.SetTarget(100.f);
+    bool inside = true;
+    for (int f = 0; f < 37; ++f) {
+        r.Advance(dt);
+        if (r.Position() < 100.f || r.Position() > turnedAt + 0.001f) inside = false;
+    }
+    CHECK(inside && r.Position() == 100.f);
+
+    // Moved by something else: stops there.
+    r.SetTarget(300.f);
+    r.Advance(dt);
+    r.Jump(250.f);
+    CHECK(!r.Gliding() && r.Position() == 250.f && r.Target() == 250.f && r.Speed() == 0.f);
+}
+
 int main()
 {
     TestVersions();
@@ -619,6 +684,7 @@ int main()
     TestCaptureWatchdog();
     TestFrameStats();
     TestLhmSelect();
+    TestScrollGlide();
     printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures;
 }

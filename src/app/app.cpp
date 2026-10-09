@@ -174,19 +174,38 @@ void App::Loop()
 {
     while (running_) {
         // Wake for input, for the next HUD frame, or, while the settings window is in use, for
-        // the display being ready for its next frame, whichever comes first.
+        // the display having room for its next frame, whichever comes first.
         int waitMs = 1000 / std::max(1, cfg_.hudFps);
         if (settings_.IsOpen() && GetForegroundWindow() == settings_.Hwnd()) waitMs = std::min(waitMs, 33);
         if (!hud_.Active() && !settings_.IsOpen()) waitMs = 50;
         if (hud_.Fading()) waitMs = std::min(waitMs, 16);
+        HANDLE handles[2] = { frameTimer_, nullptr };
+        DWORD count = 1;
+        if (settings_.IsOpen() && settings_.WantsFastFrames() && settings_.FrameWaitable()) {
+            if (settings_.ReadyForFastFrame()) waitMs = 0;     // room in the queue: render it now
+            else handles[count++] = settings_.FrameWaitable();
+        }
         LARGE_INTEGER due;
         due.QuadPart = -(LONGLONG)waitMs * 10000;
         SetWaitableTimer(frameTimer_, &due, 0, nullptr, nullptr, FALSE);
-        HANDLE handles[2] = { frameTimer_, nullptr };
-        DWORD count = 1;
-        if (settings_.IsOpen() && settings_.WantsFastFrames() && settings_.FrameWaitable()) handles[count++] = settings_.FrameWaitable();
         const DWORD woke = MsgWaitForMultipleObjectsEx(count, handles, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
         const bool vblank = count == 2 && woke == WAIT_OBJECT_0 + 1;
+#ifdef FPSO_TEST_INSTANCE
+        {   // Test builds: how often the loop wakes, and why, once a second.
+            static int timer = 0, display = 0, input = 0, other = 0;
+            static ULONGLONG windowStart = GetTickCount64();
+            if (woke == WAIT_OBJECT_0) ++timer;
+            else if (vblank) ++display;
+            else if (woke == WAIT_OBJECT_0 + count) ++input;
+            else ++other;
+            if (GetTickCount64() - windowStart >= 1000) {
+                logx::Info("loop: %d wakes/s (timer %d, display ready %d, input %d, other %d)", timer + display + input + other,
+                           timer, display, input, other);
+                timer = display = input = other = 0;
+                windowStart = GetTickCount64();
+            }
+        }
+#endif
 
         MSG msg;
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {

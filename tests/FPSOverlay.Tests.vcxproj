@@ -66,6 +66,7 @@
     <ClCompile Include="..\src\capture\frame_stats.cpp" />
     <ClCompile Include="..\src\capture\game_detect.cpp" />
     <ClCompile Include="..\src\sensors\lhm_select.cpp" />
+    <ClCompile Include="..\src\ui\scroll_glide.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

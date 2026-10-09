@@ -60,7 +60,7 @@ bool SwapTarget::Create(const D3D& d3d, HWND hwnd, UINT width, UINT height, Mode
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     if (mode == Mode::Flip) {
         sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-        sd.BufferCount = 2;
+        sd.BufferCount = kFramesInFlight + 1;   // the queued frames, plus one to draw the next into
         sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         sd.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
     } else {
@@ -87,11 +87,12 @@ bool SwapTarget::Create(const D3D& d3d, HWND hwnd, UINT width, UINT height, Mode
     if (flags_ & DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT) {
         IDXGISwapChain2* sc2 = nullptr;
         if (SUCCEEDED(swap_->QueryInterface(__uuidof(IDXGISwapChain2), reinterpret_cast<void**>(&sc2)))) {
-            sc2->SetMaximumFrameLatency(1);
+            sc2->SetMaximumFrameLatency(kFramesInFlight);
             waitable_ = sc2->GetFrameLatencyWaitableObject();
             sc2->Release();
         }
     }
+    ForgetQueuedFrames();
     d3d.Factory()->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
     CreateView();
     return rtv_ != nullptr;
@@ -113,6 +114,7 @@ void SwapTarget::Destroy()
     SafeRelease(swap_);
     if (waitable_) CloseHandle(waitable_);
     waitable_ = nullptr;
+    inFlight_ = 0;
     flags_ = 0;
     occluded_ = false;
 }
@@ -133,6 +135,7 @@ bool SwapTarget::Resize(UINT width, UINT height)
     }
     width_ = width;
     height_ = height;
+    ForgetQueuedFrames();
     CreateView();
     return rtv_ != nullptr;
 }
@@ -152,7 +155,28 @@ bool SwapTarget::Present(bool vsync)
     if (!swap_) return false;
     const HRESULT hr = swap_->Present(vsync ? 1 : 0, 0);
     occluded_ = (hr == DXGI_STATUS_OCCLUDED);
+    if (waitable_ && hr == S_OK) ++inFlight_;
     return !occluded_;
+}
+
+void SwapTarget::FrameDone()
+{
+    if (inFlight_ > 0) --inFlight_;
+}
+
+bool SwapTarget::QueueHasRoom()
+{
+    if (!waitable_) return true;
+    // A signal with no frame in flight is a spare: DXGI starts the count at its default of three.
+    while (WaitForSingleObject(waitable_, 0) == WAIT_OBJECT_0) FrameDone();
+    return inFlight_ < kFramesInFlight;
+}
+
+// After creating or resizing, nothing is queued: drop whatever the waitable holds.
+void SwapTarget::ForgetQueuedFrames()
+{
+    while (waitable_ && WaitForSingleObject(waitable_, 0) == WAIT_OBJECT_0) {}
+    inFlight_ = 0;
 }
 
 bool SwapTarget::Occluded()

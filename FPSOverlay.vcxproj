@@ -120,6 +120,7 @@
     <ClCompile Include="src\sensors\pdh_reader.cpp" />
     <ClCompile Include="src\sensors\sensor_hub.cpp" />
     <ClCompile Include="src\ui\hud.cpp" />
+    <ClCompile Include="src\ui\scroll_glide.cpp" />
     <ClCompile Include="src\ui\settings_window.cpp" />
     <ClCompile Include="src\ui\theme.cpp" />
     <ClCompile Include="src\ui\widgets.cpp" />
@@ -165,6 +166,7 @@
     <ClInclude Include="src\sensors\sensor_hub.h" />
     <ClInclude Include="src\sensors\snapshot.h" />
     <ClInclude Include="src\ui\hud.h" />
+    <ClInclude Include="src\ui\scroll_glide.h" />
     <ClInclude Include="src\ui\settings_window.h" />
     <ClInclude Include="src\ui\theme.h" />
     <ClInclude Include="src\ui\widgets.h" />

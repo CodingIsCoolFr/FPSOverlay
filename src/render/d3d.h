@@ -40,17 +40,26 @@ public:
     UINT Height() const { return height_; }
     bool Valid() const { return swap_ != nullptr; }
 
-    // Flip mode: signalled when the display can take the next frame (frame latency 1). Waiting
-    // on it and presenting with vsync renders exactly once per refresh, with the least delay.
+    // Flip mode keeps up to kFramesInFlight presented frames queued for the display. The
+    // waitable is signalled once for each queued frame the GPU has processed; with vsync that is
+    // the refresh that shows it. Present with vsync, render while QueueHasRoom(), and otherwise
+    // wait on FrameWaitable() (then call FrameDone()): exactly one frame per refresh, and Present
+    // never blocks. One frame in flight left no slack: whenever the GPU took a refresh longer to
+    // show a frame (a busy game), the display showed the last one twice.
+    static constexpr int kFramesInFlight = 2;
     HANDLE FrameWaitable() const { return waitable_; }
+    void FrameDone();               // a wait on FrameWaitable() returned
+    bool QueueHasRoom();            // counts frames done without waiting; always true in blt mode
 
 private:
     void CreateView();
+    void ForgetQueuedFrames();
 
     const D3D*              d3d_ = nullptr;
     IDXGISwapChain1*        swap_ = nullptr;
     ID3D11RenderTargetView* rtv_ = nullptr;
     HANDLE                  waitable_ = nullptr;
+    int                     inFlight_ = 0;  // presented, not yet processed (flip mode)
     UINT                    flags_ = 0;     // swap chain flags, repeated on ResizeBuffers
     UINT width_ = 0, height_ = 0;
     Mode mode_ = Mode::Flip;
