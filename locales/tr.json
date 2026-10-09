@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "FPS, GPU, CPU ve RAM etiketleri.",
       "Behavior": "Davranış",
       "Hide when no game is running": "Oyun çalışmıyorsa gizle",
-      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "Bir oyun çalışırken görünür. Oyundan Alt+Tab ile çıktığında ya da oyunu simge durumuna küçülttüğünde gizlenir. Bir uygulamayı yanlış değerlendirirse, o uygulama açıkken bildirim alanındaki simgeye sağ tıkla.",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.": "Bir oyun çalışırken görünür. Oyundan Alt+Tab ile çıktığında ya da oyunu simge durumuna küçülttüğünde, ayrıca videoların ve diğer tam ekran uygulamaların üzerinde gizlenir. Bir uygulamayı yanlış değerlendirirse, o uygulama açıkken bildirim alanındaki simgeye sağ tıkla.",
       "Hide from screenshots and recordings": "Ekran görüntüleri ve kayıtlarda gizle",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS, Discord yayınları ve ekran görüntüleri kaplamayı göstermez. Sen yine de görürsün.",
       "Where the numbers come from, and how often they update.": "Değerlerin nereden geldiği ve ne sıklıkla güncellendiği.",

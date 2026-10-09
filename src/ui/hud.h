@@ -43,6 +43,8 @@ public:
         RECT rc;
         return ResolveMonitor(cfg, rc) ? monitor_ : nullptr;
     }
+    // The middle of where the HUD goes, screen pixels, known even while it is hidden.
+    POINT Spot(const cfg::Config& cfg);
 
     // Renders one frame when due (cfg.hudFps). `force` refreshes the numbers immediately.
     void Tick(const cfg::Config& cfg, const HudFrameInfo& frames, const SensorSnapshot& sensors, bool force = false);
@@ -67,6 +69,7 @@ private:
     void BuildFrame(const cfg::Config& cfg, const HudFrameInfo& frames, const SensorSnapshot& sensors,
                     float dpiScale, bool glow);
     bool ResolveMonitor(const cfg::Config& cfg, RECT& monitorRect);
+    bool Layout(const cfg::Config& cfg, int contentW, int contentH, POINT& topLeft);   // content, not window
     void Place(const cfg::Config& cfg, int contentW, int contentH);
     void UpdateInteractive();
     void SetClickThrough(bool on);

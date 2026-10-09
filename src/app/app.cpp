@@ -206,7 +206,10 @@ void App::Frame(bool settingsVblank)
 
     if (now - lastTargetUpdate_ >= 250) {
         lastTargetUpdate_ = now;
-        tracker_.Update(capture_, games::Choices{ cfg_.gameApps, cfg_.notGameApps });
+        const games::Choices choices{ cfg_.gameApps, cfg_.notGameApps };
+        tracker_.Update(capture_, choices);
+        // What the HUD would sit on, for "Hide when no game is running" (see GameShown).
+        hudSpot_ = cfg_.hideWhenIdle ? tracker_.Look(hud_.Spot(cfg_), capture_, choices) : TargetTracker::Spot::Other;
     }
     if (now - lastCaptureCheck_ >= 1000) {
         lastCaptureCheck_ = now;
@@ -278,8 +281,6 @@ void App::Frame(bool settingsVblank)
     if (saveDue_ && now >= saveDue_) SaveNow();
 }
 
-// "Hide when no game is running": a game is drawing and nothing else is in front of it on the
-// HUD's monitor. Loading screens and quick focus changes do not make the HUD blink.
 // "Hide when no game is running" (see GameVisibility for the rule). This only gathers what it
 // needs to know about the windows on screen.
 bool App::GameShown(ULONGLONG now, const FrameCapture::Result& fr)
@@ -289,37 +290,48 @@ bool App::GameShown(ULONGLONG now, const FrameCapture::Result& fr)
     in.isGame = tracker_.IsGame();
     in.secondsSinceFrame = fr.secondsSinceLastFrame;
     HWND game = tracker_.Window();
-    in.minimized = game && IsIconic(game);
 
-    HWND fg = GetForegroundWindow();
+    HWND fg = nullptr;
+    const DWORD fgPid = tracker_.ForegroundPid(&fg);
+    const bool popup = tracker_.ForegroundIsPopup();
     DWORD owner = 0;
     if (fg) GetWindowThreadProcessId(fg, &owner);
-    if (!fg) {
+    if (!fg || popup) {
         in.front = GameVisibility::Front::Moving;
     } else if (owner == GetCurrentProcessId()) {
         in.front = GameVisibility::Front::Ours;
-    } else if (in.target && TargetTracker::ForegroundPid() == in.target) {
+    } else if (in.target && fgPid == in.target) {
         in.front = GameVisibility::Front::Game;
     } else {
         const HMONITOR gameMon = game ? MonitorFromWindow(game, MONITOR_DEFAULTTONULL) : hud_.Monitor(cfg_);
         in.front = MonitorFromWindow(fg, MONITOR_DEFAULTTONULL) == gameMon ? GameVisibility::Front::GameScreen
                                                                            : GameVisibility::Front::OtherScreen;
     }
+    // A game on another virtual desktop is cloaked, and as good as minimized.
+    in.minimized = game && (IsIconic(game) || (in.front != GameVisibility::Front::Game && win::IsCloaked(game)));
+    in.overVideo = hudSpot_ == TargetTracker::Spot::FullScreenApp || hudSpot_ == TargetTracker::Spot::Video;
     const bool shown = gameVis_.Update(in, now);
 
     // One line whenever an input or the result changes, so "it never shows up" can be read
     // straight from FPSOverlay.log.
     const int state = (in.isGame ? 1 : 0) | (gameVis_.Drawing() ? 2 : 0) | (in.minimized ? 4 : 0) |
-                      (gameVis_.AltTabbedOut() ? 8 : 0) | (shown ? 16 : 0);
+                      (gameVis_.AltTabbedOut() ? 8 : 0) | (shown ? 16 : 0) | (in.overVideo ? 32 : 0);
     if (state != gameLogState_ || in.target != gameLogPid_) {
         gameLogState_ = state;
         gameLogPid_ = in.target;
         win::ProcessInfo fgi;
         win::QueryProcessInfo(owner, fgi);
-        logx::Info("Game check: target %s (game %d, drawing %d, minimized %d, alt-tabbed out %d), in front %s -> overlay %s",
+        const std::string& other = tracker_.SpotExe().empty() ? std::string("nothing") : tracker_.SpotExe();
+        const std::string spot = hudSpot_ == TargetTracker::Spot::Game          ? std::string("the game")
+                               : hudSpot_ == TargetTracker::Spot::Video         ? "a video in " + other
+                               : hudSpot_ == TargetTracker::Spot::FullScreenApp ? "full-screen " + other
+                                                                                 : other;
+        logx::Info("Game check: target %s (game %d, drawing %d, minimized %d, alt-tabbed out %d), in front %s%s, "
+                   "under the overlay %s -> overlay %s",
                    tracker_.ExeName().empty() ? "none" : tracker_.ExeName().c_str(), (int)in.isGame,
                    (int)gameVis_.Drawing(), (int)in.minimized, (int)gameVis_.AltTabbedOut(),
-                   fgi.exe.empty() ? "?" : fgi.exe.c_str(), shown ? "shown" : "hidden");
+                   fgi.exe.empty() ? "?" : fgi.exe.c_str(), popup ? " (Windows pop-up)" : "", spot.c_str(),
+                   shown ? "shown" : "hidden");
     }
     return shown;
 }
@@ -335,7 +347,7 @@ void App::CheckCapture(ULONGLONG now)
     w.heartbeatsMissing = capture_.HeartbeatsMissing();
     w.events = capture_.EventsSeen();
     HWND game = tracker_.Window();
-    w.gameInFront = tracker_.IsGame() && tracker_.Pid() && TargetTracker::ForegroundPid() == tracker_.Pid() &&
+    w.gameInFront = tracker_.IsGame() && tracker_.Pid() && tracker_.ForegroundPid() == tracker_.Pid() &&
                     !(game && IsIconic(game));
     if (!captureWatchdog_.Update(w, now)) return;
 

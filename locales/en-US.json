@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "FPS, GPU, CPU and RAM captions.",
       "Behavior": "Behavior",
       "Hide when no game is running": "Hide when no game is running",
-      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.": "Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.",
       "Hide from screenshots and recordings": "Hide from screenshots and recordings",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS, Discord streams and screenshots will not show the overlay. You still see it.",
       "Where the numbers come from, and how often they update.": "Where the numbers come from, and how often they update.",

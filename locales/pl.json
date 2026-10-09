@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "Etykiety FPS, GPU, CPU i RAM.",
       "Behavior": "Zachowanie",
       "Hide when no game is running": "Ukryj, gdy żadna gra nie działa",
-      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "Widoczna, gdy działa gra. Znika, gdy wyjdziesz z gry przez Alt+Tab albo ją zminimalizujesz. Jeśli źle oceni aplikację, kliknij prawym przyciskiem ikonę w zasobniku, gdy ta aplikacja jest otwarta.",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.": "Widoczna, gdy działa gra. Znika, gdy wyjdziesz z gry przez Alt+Tab albo ją zminimalizujesz, a także nad filmami i innymi aplikacjami pełnoekranowymi. Jeśli źle oceni aplikację, kliknij prawym przyciskiem ikonę w zasobniku, gdy ta aplikacja jest otwarta.",
       "Hide from screenshots and recordings": "Ukryj na zrzutach i nagraniach",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS, transmisje na Discordzie i zrzuty ekranu nie pokażą nakładki. Ty nadal ją widzisz.",
       "Where the numbers come from, and how often they update.": "Skąd pochodzą wartości i jak często się odświeżają.",

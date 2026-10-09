@@ -207,5 +207,5 @@ T = {
 "Support": "Apoiar",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "O FPS Overlay é gratuito e feito por uma só pessoa. Se ele te ajuda, um café no Ko-fi mantém o projeto vivo. Nunca é obrigatório, e nenhum recurso fica bloqueado.",
 "Count %s as a game": "Contar %s como jogo",
-"Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "Aparece enquanto um jogo está rodando. Some quando você sai do jogo com Alt+Tab ou o minimiza. Se ele errar com algum app, clique com o botão direito no ícone da bandeja com esse app aberto.",
+"Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.": "Aparece enquanto um jogo está rodando. Some quando você sai do jogo com Alt+Tab ou o minimiza, e sobre vídeos e outros apps em tela cheia. Se ele errar com algum app, clique com o botão direito no ícone da bandeja com esse app aberto.",
 }

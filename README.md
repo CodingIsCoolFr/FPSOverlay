@@ -313,8 +313,28 @@ other window, this overlay included.
 With *Hide when no game is running* on, the overlay shows while a game is running and hides when
 you alt-tab out of the game or minimize it, and it waits until it knows the app is a game.
 It knows games from Steam, Epic, GOG, Xbox and other game folders, and from the list of games
-Windows itself keeps for the Game Bar. Any other app counts while it fills the screen. If it gets
-one wrong, open that app, right-click the tray icon and pick **Count … as a game**.
+Windows itself keeps for the Game Bar. Any other app counts while it fills the screen, unless it
+is a video player. If it gets one wrong, open that app, right-click the tray icon and pick
+**Count … as a game**.
+</details>
+
+<details>
+<summary><b>When exactly does "Hide when no game is running" hide the overlay?</b></summary>
+
+It shows while a game is drawing frames, and hides when:
+
+- no game is running, or the game has not drawn a frame for 3 seconds (loading screens are fine),
+- the game is minimized or on another virtual desktop,
+- you alt-tab out of the game to another app on the game's screen, until you go back to it.
+  The Start menu, search, the Alt+Tab switcher and the taskbar do not count,
+- a video or another full-screen app is where the overlay sits (a film in Stremio, VLC or mpv,
+  a full-screen browser), unless you are playing the game right then.
+
+It looks through other overlays, frame scalers like Lossless Scaling, and screenshot tools.
+Video players are never counted as games, by name or by the video engine they load (mpv, VLC,
+and the PlayReady protection streaming apps use). An app on your other monitor does not hide it.
+`FPSOverlay.log` has a "Game check" line every time the decision changes, with what was in front
+and what was under the overlay.
 </details>
 
 <details>

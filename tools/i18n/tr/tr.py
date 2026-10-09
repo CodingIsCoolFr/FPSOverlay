@@ -207,5 +207,5 @@ T = {
 "Support": "Destek ol",
 "FPS Overlay is free and made by one person. If it helps you, a coffee on Ko-fi keeps it going. It is never required, and nothing is held back.": "FPS Overlay ücretsizdir ve tek bir kişi tarafından geliştirilir. İşine yarıyorsa, Ko-fi'de bir kahve onun devam etmesini sağlar. Asla zorunlu değildir ve hiçbir özellik kısıtlanmaz.",
 "Count %s as a game": "%s oyun olarak say",
-"Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "Bir oyun çalışırken görünür. Oyundan Alt+Tab ile çıktığında ya da oyunu simge durumuna küçülttüğünde gizlenir. Bir uygulamayı yanlış değerlendirirse, o uygulama açıkken bildirim alanındaki simgeye sağ tıkla.",
+"Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.": "Bir oyun çalışırken görünür. Oyundan Alt+Tab ile çıktığında ya da oyunu simge durumuna küçülttüğünde, ayrıca videoların ve diğer tam ekran uygulamaların üzerinde gizlenir. Bir uygulamayı yanlış değerlendirirse, o uygulama açıkken bildirim alanındaki simgeye sağ tıkla.",
 }

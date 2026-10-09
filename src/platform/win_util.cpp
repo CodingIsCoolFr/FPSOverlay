@@ -182,6 +182,19 @@ bool ProcessHasModule(DWORD pid, const wchar_t* moduleName)
     return found;
 }
 
+bool ProcessHasModuleWhere(DWORD pid, bool (*match)(std::wstring_view moduleName))
+{
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid);
+    if (snap == INVALID_HANDLE_VALUE) return false;
+    MODULEENTRY32W me = {};
+    me.dwSize = sizeof(me);
+    bool found = false;
+    for (BOOL ok = Module32FirstW(snap, &me); ok && !found; ok = Module32NextW(snap, &me))
+        found = match(me.szModule);
+    CloseHandle(snap);
+    return found;
+}
+
 bool ProcessAlive(DWORD pid)
 {
     if (!pid) return false;
@@ -193,6 +206,12 @@ bool ProcessAlive(DWORD pid)
     const bool alive = WaitForSingleObject(h, 0) == WAIT_TIMEOUT;
     CloseHandle(h);
     return alive;
+}
+
+bool IsCloaked(HWND hwnd)
+{
+    DWORD cloaked = 0;
+    return hwnd && SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))) && cloaked;
 }
 
 // ── Monitors ─────────────────────────────────────────────────────────────────

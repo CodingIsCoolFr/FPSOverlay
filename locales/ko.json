@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "FPS, GPU, CPU, RAM 라벨.",
       "Behavior": "동작",
       "Hide when no game is running": "게임이 실행 중이 아니면 숨기기",
-      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "게임이 실행 중일 때 표시됩니다. Alt+Tab으로 게임에서 나가거나 게임을 최소화하면 숨겨집니다. 앱을 잘못 판단하면 그 앱을 연 채로 트레이 아이콘을 마우스 오른쪽 버튼으로 클릭하세요.",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.": "게임이 실행 중일 때 표시됩니다. Alt+Tab으로 게임에서 나가거나 게임을 최소화하면 숨겨지고, 동영상이나 다른 전체 화면 앱 위에서도 숨겨집니다. 앱을 잘못 판단하면 그 앱을 연 채로 트레이 아이콘을 마우스 오른쪽 버튼으로 클릭하세요.",
       "Hide from screenshots and recordings": "스크린샷과 녹화에서 숨기기",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "OBS, Discord 방송, 스크린샷에는 오버레이가 보이지 않습니다. 내 화면에는 계속 보입니다.",
       "Where the numbers come from, and how often they update.": "값을 어디서 가져오고 얼마나 자주 갱신하는지.",

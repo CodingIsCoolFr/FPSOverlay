@@ -59,7 +59,7 @@
       "FPS, GPU, CPU and RAM captions.": "تسميات FPS وGPU وCPU وRAM.",
       "Behavior": "السلوك",
       "Hide when no game is running": "إخفاء عند عدم تشغيل لعبة",
-      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it. If it gets an app wrong, right-click the tray icon while that app is open.": "تظهر أثناء تشغيل لعبة. وتختفي عند الخروج من اللعبة بـ Alt+Tab أو تصغيرها. إذا أخطأت في تطبيق ما، فانقر بزر الماوس الأيمن على أيقونة شريط المهام بينما يكون ذلك التطبيق مفتوحًا.",
+      "Shows while a game is running. Hides when you alt-tab out of the game or minimize it, and over videos and other full-screen apps. If it gets an app wrong, right-click the tray icon while that app is open.": "تظهر أثناء تشغيل لعبة. وتختفي عند الخروج من اللعبة بـ Alt+Tab أو تصغيرها، وفوق مقاطع الفيديو والتطبيقات الأخرى بملء الشاشة. إذا أخطأت في تطبيق ما، فانقر بزر الماوس الأيمن على أيقونة شريط المهام بينما يكون ذلك التطبيق مفتوحًا.",
       "Hide from screenshots and recordings": "إخفاء من لقطات الشاشة والتسجيلات",
       "OBS, Discord streams and screenshots will not show the overlay. You still see it.": "لن تظهر الطبقة في OBS أو بث Discord أو لقطات الشاشة. ستظل تراها أنت.",
       "Where the numbers come from, and how often they update.": "مصدر القيم وعدد مرات تحديثها.",

@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include <string>
+#include <string_view>
 
 namespace win {
 
@@ -39,8 +40,13 @@ bool QueryProcessInfo(DWORD pid, ProcessInfo& out);
 // True if the process has a module with this (case-insensitive) file name loaded.
 // Fails closed (false) when the process cannot be opened, e.g. anti-cheat protected games.
 bool ProcessHasModule(DWORD pid, const wchar_t* moduleName);
+// The same for any module whose file name `match` accepts.
+bool ProcessHasModuleWhere(DWORD pid, bool (*match)(std::wstring_view moduleName));
 
 bool ProcessAlive(DWORD pid);
+
+// Hidden by Windows itself although "visible": on another virtual desktop, or a suspended Store app.
+bool IsCloaked(HWND hwnd);
 
 // Physical monitor list in enumeration order (index 0 is not necessarily the primary).
 struct MonitorInfo {
