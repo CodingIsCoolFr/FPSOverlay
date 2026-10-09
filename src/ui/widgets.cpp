@@ -19,6 +19,14 @@ bool    g_icons = false;
 
 struct ComboRowState { float rowBottom = 0; float startX = 0; } g_comboRow;
 
+// A click is a press and a release on the same item with the mouse (nearly) still. A press that
+// slid on the way (a slip of the hand, a touchpad gesture) changes nothing.
+bool Clicked(bool pressed)
+{
+    const float limit = ImGui::GetFontSize() * 0.4f;
+    return pressed && ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] <= limit * limit;
+}
+
 float Anim(ImGuiID id, float target, float speed = 16.f)
 {
     float* t = ImGui::GetStateStorage()->GetFloatRef(id, target);
@@ -238,7 +246,7 @@ bool ToggleSwitch(const char* id, bool* v, bool disabled)
     const float w = em * 2.3f, h = em * 1.25f;
     ImGui::PushID(id);
     const ImVec2 p = ImGui::GetCursorScreenPos();
-    bool pressed = ImGui::InvisibleButton("##switch", ImVec2(w, h)) && !disabled;
+    bool pressed = Clicked(ImGui::InvisibleButton("##switch", ImVec2(w, h))) && !disabled;
     if (pressed) *v = !*v;
     const float t = Anim(ImGui::GetID("##anim"), *v ? 1.f : 0.f);
     DrawSwitch(ImGui::GetWindowDrawList(), p, w, h, t, ImGui::IsItemHovered(), disabled);
@@ -272,17 +280,18 @@ bool ToggleRow(const char* label, bool* v, const char* hint, const char* badge, 
 
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
     ImGui::PushID(label);
-    bool pressed = ImGui::InvisibleButton("##row", ImVec2(width, rowH)) && !disabled;
+    // Only the switch takes clicks, with a little room around it. Until 2.0.13 the whole row did,
+    // so a click on a label or between rows changed a setting by accident.
+    const ImVec2 sw(EndX(p0.x + padX, width - 2 * padX, swW), p0.y + (rowH - swH) * 0.5f);
+    const float slack = em * 0.3f;
+    ImGui::SetCursorScreenPos(ImVec2(sw.x - slack, sw.y - slack));
+    const bool pressed = Clicked(ImGui::InvisibleButton("##switch", ImVec2(swW + 2 * slack, swH + 2 * slack))) && !disabled;
     const bool hovered = ImGui::IsItemHovered() && !disabled;
+    if (hovered) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     if (pressed) *v = !*v;
 
-    const float hoverT = Anim(ImGui::GetID("##hov"), hovered ? 1.f : 0.f, 20.f);
-    if (hoverT > 0.01f)
-        dl->AddRectFilled(p0, ImVec2(p0.x + width, p0.y + rowH), theme::U32(theme::kCardHover, hoverT), em * 0.45f);
-
-    const float swX = EndX(p0.x + padX, width - 2 * padX, swW);
     const float t = Anim(ImGui::GetID("##sw"), *v ? 1.f : 0.f);
-    DrawSwitch(dl, ImVec2(swX, p0.y + (rowH - swH) * 0.5f), swW, swH, t, hovered, disabled);
+    DrawSwitch(dl, sw, swW, swH, t, hovered, disabled);
 
     const float ty = p0.y + (rowH - textH) * 0.5f;
     const float lx = StartX(p0.x + padX, width - 2 * padX, ls.x);
@@ -299,6 +308,8 @@ bool ToggleRow(const char* label, bool* v, const char* hint, const char* badge, 
         DrawText(dl, font, hintSize, ImVec2(hx, ty + ls.y + em * 0.12f), theme::kTextDim, hint, textMax);
     }
     ImGui::PopID();
+    ImGui::SetCursorScreenPos(p0);
+    ImGui::Dummy(ImVec2(width, rowH));
     return pressed;
 }
 
@@ -326,7 +337,7 @@ bool Segmented(const char* id, int* v, const char* const* items, int count, floa
         const int slot = g_rtl ? count - 1 - i : i;
         ImGui::SetCursorScreenPos(ImVec2(p0.x + slot * segW, p0.y));
         ImGui::PushID(i);
-        if (ImGui::InvisibleButton("##seg", ImVec2(segW, h)) && *v != i) {
+        if (Clicked(ImGui::InvisibleButton("##seg", ImVec2(segW, h))) && *v != i) {
             *v = i;
             changed = true;
         }
@@ -397,25 +408,33 @@ bool SliderRow(const char* label, const char* hint, int* v, int min, int max, co
     const float trackY = p0.y + padY + labelH + em * 0.9f;
     const float x0 = p0.x + padX + em * 0.5f, x1 = p0.x + width - padX - em * 0.5f;
     const float hitH = em * 1.4f;
-    ImGui::SetCursorScreenPos(ImVec2(p0.x + padX, trackY - hitH * 0.5f));
+    auto knobX = [&] {
+        float f = (max > min) ? (float)(*v - min) / (float)(max - min) : 0.f;
+        if (g_rtl) f = 1.f - f;
+        return x0 + (x1 - x0) * f;
+    };
+    // Only the knob can be grabbed: until 2.0.13 a click anywhere on the track jumped the value.
+    // While held, it follows the mouse from where it was grabbed, so grabbing it never moves it.
+    const float grab = em * 0.85f;
+    ImGui::SetCursorScreenPos(ImVec2(knobX() - grab, trackY - grab));
     ImGui::PushID(label);
-    ImGui::InvisibleButton("##slider", ImVec2(width - 2 * padX, hitH));
+    ImGui::InvisibleButton("##knob", ImVec2(grab * 2, grab * 2));
     bool changed = false;
     const bool active = ImGui::IsItemActive();
     const bool hovered = ImGui::IsItemHovered();
-    if (active && x1 > x0) {
-        float f = (ImGui::GetIO().MousePos.x - x0) / (x1 - x0);
-        f = std::clamp(f, 0.f, 1.f);
-        if (g_rtl) f = 1.f - f;
-        const int nv = min + (int)std::lround(f * (max - min));
-        if (nv != *v) { *v = nv; changed = true; }
+    float* grabbedAt = ImGui::GetStateStorage()->GetFloatRef(ImGui::GetID("##from"), 0.f);
+    if (ImGui::IsItemActivated()) *grabbedAt = (float)*v;
+    if (active && x1 > x0 && max > min) {
+        float dx = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.f).x / (x1 - x0);
+        if (g_rtl) dx = -dx;
+        const float nv = std::clamp(*grabbedAt + dx * (max - min), (float)min, (float)max);
+        const int rounded = (int)std::lround(nv);
+        if (rounded != *v) { *v = rounded; changed = true; }
     }
     if (hovered || active) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     ImGui::PopID();
 
-    float f = (max > min) ? (float)(*v - min) / (float)(max - min) : 0.f;
-    if (g_rtl) f = 1.f - f;
-    const float kx = x0 + (x1 - x0) * f;
+    const float kx = knobX();
     const float th = em * 0.28f;
     dl->AddRectFilled(ImVec2(x0, trackY - th * 0.5f), ImVec2(x1, trackY + th * 0.5f), theme::U32(theme::kFrameHover), th);
     if (g_rtl) dl->AddRectFilled(ImVec2(kx, trackY - th * 0.5f), ImVec2(x1, trackY + th * 0.5f), theme::U32(theme::Accent()), th);
@@ -565,7 +584,7 @@ static bool StyledButton(const char* label, const ImVec2& sizeArg, bool disabled
     if (size.y <= 0) size.y = em * 2.0f;
     const ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::PushID(label);
-    bool pressed = ImGui::InvisibleButton("##btn", size);
+    bool pressed = Clicked(ImGui::InvisibleButton("##btn", size));
     const bool hov = ImGui::IsItemHovered(), act = ImGui::IsItemActive();
     ImGui::PopID();
     if (disabled) pressed = false;
@@ -599,7 +618,7 @@ bool SupportButton(const char* label, const ImVec2& sizeArg, bool soft)
     if (size.y <= 0) size.y = em * 2.0f;
     const ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::PushID(label);
-    const bool pressed = ImGui::InvisibleButton("##support", size);
+    const bool pressed = Clicked(ImGui::InvisibleButton("##support", size));
     const bool hov = ImGui::IsItemHovered(), act = ImGui::IsItemActive();
     const float hovT = Anim(ImGui::GetID("##hov"), hov ? 1.f : 0.f, 20.f);
     ImGui::PopID();
@@ -637,7 +656,7 @@ bool SidebarItem(const char* icon, const char* label, bool selected)
     const float h = em * 2.4f;
     const ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::PushID(label);
-    const bool pressed = ImGui::InvisibleButton("##nav", ImVec2(w, h));
+    const bool pressed = Clicked(ImGui::InvisibleButton("##nav", ImVec2(w, h)));
     const bool hov = ImGui::IsItemHovered();
     const float selT = Anim(ImGui::GetID("##sel"), selected ? 1.f : 0.f, 18.f);
     const float hovT = Anim(ImGui::GetID("##hov"), hov ? 1.f : 0.f, 20.f);
@@ -674,7 +693,7 @@ bool KeyCap(const char* id, const char* text, bool listening, float width)
     const float h = em * 2.0f;
     const ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::PushID(id);
-    const bool pressed = ImGui::InvisibleButton("##key", ImVec2(width, h));
+    const bool pressed = Clicked(ImGui::InvisibleButton("##key", ImVec2(width, h)));
     const bool hov = ImGui::IsItemHovered();
     ImGui::PopID();
     const ImVec4 bg = listening ? theme::AccentSoft(0.18f) : (hov ? theme::kFrameHover : theme::kFrame);
@@ -729,7 +748,7 @@ bool PositionPicker(const char* id, int* anchor, bool custom, float width)
     for (int i = 0; i < 6; ++i) {
         ImGui::SetCursorScreenPos(slots[i]);
         ImGui::PushID(i);
-        if (ImGui::InvisibleButton("##slot", ImVec2(bw, bh))) {
+        if (Clicked(ImGui::InvisibleButton("##slot", ImVec2(bw, bh)))) {
             *anchor = i;
             changed = true;
         }
@@ -762,7 +781,7 @@ bool ColorSwatches(const char* id, int* index, int count, const ImVec4* colors, 
         const ImVec2 c0(x0 + i * (d + gap), p.y);
         ImGui::SetCursorScreenPos(c0);
         ImGui::PushID(i);
-        if (ImGui::InvisibleButton("##sw", ImVec2(d, d))) { *index = i; changed = true; }
+        if (Clicked(ImGui::InvisibleButton("##sw", ImVec2(d, d)))) { *index = i; changed = true; }
         const bool hov = ImGui::IsItemHovered();
         if (hov && names) Tooltip(names[i]);
         ImGui::PopID();

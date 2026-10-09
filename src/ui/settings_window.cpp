@@ -122,6 +122,8 @@ bool SettingsWindow::Open(HINSTANCE inst, D3D& d3d, cfg::Config& config)
     CreateContext(d3d, true);
     lastSerialized_ = Serialize(*cfg_);
     welcomeOpen_ = !cfg_->firstRunDone;
+    resetConfirmOpen_ = false;
+    activationClick_ = dropRelease_ = false;
 
     ShowWindow(hwnd_, SW_SHOW);
     SetForegroundWindow(hwnd_);
@@ -323,6 +325,11 @@ void SettingsWindow::SmoothScroll(float em)
     const float set = std::round(std::clamp(glide_.Position(), 0.f, maxY));
     if (set != cur) ImGui::SetScrollY(set);
     scrollAnimating_ = glide_.Gliding();
+    if (scrollAnimating_) {
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        lastScrollQpc_ = now.QuadPart;
+    }
 }
 
 void SettingsWindow::Draw(const UiStatus& status, const SensorSnapshot& sensors)
@@ -351,6 +358,11 @@ void SettingsWindow::Draw(const UiStatus& status, const SensorSnapshot& sensors)
     ImGui::BeginChild("##page", ImVec2(io.DisplaySize.x - sideW, bodyH), ImGuiChildFlags_AlwaysUseWindowPadding,
                       ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
+    {
+        const ImVec2 wp = ImGui::GetWindowPos(), ws = ImGui::GetWindowSize();
+        const float bar = ImGui::GetScrollMaxY() > 0.f ? ImGui::GetStyle().ScrollbarSize : 0.f;
+        pageRect_ = { (LONG)wp.x, (LONG)wp.y, (LONG)(wp.x + ws.x - bar), (LONG)(wp.y + ws.y) };
+    }
     SmoothScroll(em);
     DrawPage(status, sensors);
     ImGui::Dummy(ImVec2(0, em * 0.5f));
@@ -360,6 +372,7 @@ void SettingsWindow::Draw(const UiStatus& status, const SensorSnapshot& sensors)
     DrawFooter(status, footerH);
 
     if (welcomeOpen_) DrawWelcome(sensors);
+    else if (resetConfirmOpen_) DrawResetConfirm();
     ImGui::End();
 }
 
@@ -972,6 +985,13 @@ void SettingsWindow::PageGeneral(const UiStatus& status)
         }
     }
     ui::EndCard();
+
+    ui::BeginCard("##reset", nullptr);
+    if (ui::ButtonRow(T("Reset all settings"),
+                      T("Back to how they were after installing, including the overlay's look, color and position. Your language stays."),
+                      T("Reset")))
+        resetConfirmOpen_ = true;
+    ui::EndCard();
 }
 
 void SettingsWindow::PageAbout(const UiStatus& status, const SensorSnapshot& s)
@@ -1122,6 +1142,53 @@ void SettingsWindow::DrawWelcome(const SensorSnapshot& s)
     ImGui::PopStyleColor();
 }
 
+void SettingsWindow::DrawResetConfirm()
+{
+    const float em = ImGui::GetFontSize();
+    if (!ImGui::IsPopupOpen("##reset")) ImGui::OpenPopup("##reset");
+    const ImVec2 ds = ImGui::GetIO().DisplaySize;
+    const float w = std::min(em * 26.f, ds.x - em * 4.f);
+    ImGui::SetNextWindowPos(ImVec2(ds.x * 0.5f, ds.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(w, 0));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, theme::kCard);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(em * 1.6f, em * 1.4f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, em * 0.8f);
+    if (ImGui::BeginPopupModal("##reset", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize)) {
+        const bool rtl = ui::IsRtl();
+        ImGui::PushFont(ui::StrongFont(), ImGui::GetStyle().FontSizeBase * 1.2f);
+        const char* title = T("Reset all settings?");
+        if (rtl) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(title).x);
+        ImGui::TextUnformatted(title);
+        ImGui::PopFont();
+        ImGui::Spacing();
+        ui::Paragraph(T("What the overlay shows, its look and color, position, hotkeys and sensors all go back to their defaults. This cannot be undone."),
+                      theme::kTextDim, ImGui::GetContentRegionAvail().x);
+        ImGui::Dummy(ImVec2(0, em * 0.6f));
+        // Cancel first in reading order, Reset last.
+        const float gap = em * 0.5f, bh = em * 2.2f;
+        const float bw = (ImGui::GetContentRegionAvail().x - gap) * 0.5f;
+        const ImVec2 p = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(rtl ? p.x + bw + gap : p.x, p.y));
+        const bool cancel = ui::SecondaryButton(T("Cancel"), ImVec2(bw, bh)) || ImGui::IsKeyPressed(ImGuiKey_Escape);
+        ImGui::SetCursorPos(ImVec2(rtl ? p.x : p.x + bw + gap, p.y));
+        const bool reset = ui::PrimaryButton(T("Reset"), ImVec2(bw, bh));
+        if (reset) {
+            *cfg_ = cfg::FactoryDefaults(*cfg_);
+            styleDirty_ = true;         // the accent color is part of the window's style
+            capturing_ = -1;
+            inputSinceCheck_ = true;    // Tick reports the change: the app saves and rebinds hotkeys
+            logx::Info("Settings reset to defaults");
+        }
+        if (reset || cancel) {
+            resetConfirmOpen_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
+}
+
 // ── Offscreen render (screenshots) ──────────────────────────────────────────
 
 bool SettingsWindow::RenderPageToImage(D3D& d3d, cfg::Config& config, int page, int width, int height,
@@ -1250,6 +1317,43 @@ LRESULT SettingsWindow::Handle(UINT msg, WPARAM wp, LPARAM lp)
         cfg_->hotkeys[capturing_] = hk;
         capturing_ = -1;
         return 0;
+    }
+
+    // Clicks on the page that are likely accidents never reach the page: the click that brings the
+    // window to the front, and clicks while the page glides after the wheel and for 0.3 s after it
+    // stops, when whatever slid under the mouse would be hit. The sidebar, the footer buttons and
+    // the scrollbar take every click.
+    switch (msg) {
+    case WM_MOUSEWHEEL: {
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        lastScrollQpc_ = now.QuadPart;
+        break;
+    }
+    case WM_MOUSEACTIVATE:
+        activationClick_ = LOWORD(lp) == HTCLIENT && HIWORD(lp) == WM_LBUTTONDOWN;
+        break;
+    case WM_LBUTTONDOWN: {
+        const bool activating = activationClick_;
+        activationClick_ = false;
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        const bool scrolling = lastScrollQpc_ && (now.QuadPart - lastScrollQpc_) / qpcFreq_ < 0.3;
+        const POINT pt = { (short)LOWORD(lp), (short)HIWORD(lp) };
+        if ((activating || scrolling) && PtInRect(&pageRect_, pt)) {
+            dropRelease_ = true;
+            return 0;
+        }
+        break;
+    }
+    case WM_LBUTTONUP:
+        if (dropRelease_) {
+            dropRelease_ = false;
+            return 0;
+        }
+        break;
+    default:
+        break;
     }
 
     if (ctx_) {

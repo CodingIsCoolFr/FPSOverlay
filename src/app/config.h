@@ -98,6 +98,10 @@ struct Config {
 void Load(Config& c, const Ini& ini);
 void Store(const Config& c, Ini& ini);
 
+// "Reset all settings": every setting back to its default, the accent color included. Keeps the
+// language, the first-run flag (no welcome again) and the settings page that is open.
+Config FactoryDefaults(const Config& current);
+
 // File I/O. Save writes a temp file and renames it over the old one, so a crash or power
 // loss mid-save never leaves a truncated config behind.
 bool LoadFile(const std::wstring& path, Config& c);

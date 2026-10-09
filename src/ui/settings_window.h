@@ -94,6 +94,7 @@ private:
     void PageGeneral(const UiStatus& status);
     void PageAbout(const UiStatus& status, const SensorSnapshot& sensors);
     void DrawWelcome(const SensorSnapshot& sensors);
+    void DrawResetConfirm();
     void SmoothScroll(float em);
 
     HWND hwnd_ = nullptr;
@@ -119,4 +120,10 @@ private:
     bool scrollAnimating_ = false;
     bool minimized_ = false;
     bool welcomeOpen_ = false;
+    bool resetConfirmOpen_ = false; // "Reset all settings?" is asking
+    // Clicks on the page that are likely accidents are dropped (see Handle).
+    RECT pageRect_ = {};            // the scrolling page, without its scrollbar, client pixels
+    LONGLONG lastScrollQpc_ = 0;    // last wheel event or gliding frame
+    bool activationClick_ = false;  // the coming click is the one bringing the window to the front
+    bool dropRelease_ = false;      // its press was dropped: drop the release too
 };

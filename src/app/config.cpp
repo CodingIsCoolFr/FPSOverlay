@@ -104,6 +104,15 @@ Config::Config()
     hotkeys[(int)HotkeyAction::ToggleHud] = { VK_INSERT, 0 };
 }
 
+Config FactoryDefaults(const Config& current)
+{
+    Config c;
+    c.language = current.language;
+    c.firstRunDone = current.firstRunDone;
+    c.settingsPage = current.settingsPage;
+    return c;
+}
+
 std::string HotkeyToString(const Hotkey& h)
 {
     char buf[32];

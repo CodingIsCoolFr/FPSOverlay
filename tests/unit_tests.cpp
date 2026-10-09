@@ -608,6 +608,42 @@ static void TestCpuTempDecode()
     CHECK(cputemp::DecodeAmd(704u << 21, 20.f) == 68.f);
 }
 
+// ── Reset all settings ──────────────────────────────────────────────────────
+
+static void TestFactoryDefaults()
+{
+    cfg::Config c;
+    c.language = "de";
+    c.firstRunDone = true;
+    c.settingsPage = 4;
+    c.accent = 5;
+    c.layout = cfg::Layout::Horizontal;
+    c.anchor = cfg::Anchor::TopCenter;
+    c.customPos = true;
+    c.posX = 300;
+    c.bgOpacity = 0;
+    c.textOpacity = 60;
+    c.hideWhenIdle = true;
+    c.show[(int)cfg::Metric::Fps] = false;
+    c.hotkeys[(int)cfg::HotkeyAction::ToggleHud] = { 'F', MOD_CONTROL };
+    c.gameApps.push_back("vrchat.exe");
+    c.gpu = "NVIDIA GeForce RTX 4080|PCI 1";
+    c.autoUpdate = false;
+
+    const cfg::Config r = cfg::FactoryDefaults(c);
+    CHECK(r.language == "de" && r.firstRunDone && r.settingsPage == 4);     // kept
+    cfg::Config fresh;
+    fresh.language = "de";
+    fresh.firstRunDone = true;
+    fresh.settingsPage = 4;
+    Ini a, b;
+    cfg::Store(r, a);
+    cfg::Store(fresh, b);
+    CHECK(a.Serialize() == b.Serialize());                                  // everything else is the default
+    CHECK(r.accent == 0 && !r.customPos && r.show[(int)cfg::Metric::Fps] && r.gameApps.empty() && r.autoUpdate);
+    CHECK(r.hotkeys[(int)cfg::HotkeyAction::ToggleHud].vk == VK_INSERT);
+}
+
 // ── Scroll glide ────────────────────────────────────────────────────────────
 
 static void TestScrollGlide()
@@ -678,6 +714,7 @@ int main()
     TestReleaseJson();
     TestIni();
     TestConfig();
+    TestFactoryDefaults();
     TestGameDetect();
     TestGameVisibility();
     TestGameVisibilityVideoAndMemory();
